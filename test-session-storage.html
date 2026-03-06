@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Storage Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #00ff00;
+        }
+        .pass { color: #00ff00; }
+        .fail { color: #ff0000; }
+    </style>
+</head>
+<body>
+    <h1>Session Storage Utilities Test</h1>
+    <div id="test-output"></div>
+    
+    <script type="module">
+        import { savePreferences, loadPreferences, StateManager, APIClient, ResponseParser, URLRouter } from './app.js';
+        
+        const output = document.getElementById('test-output');
+        
+        function log(message, isPass = null) {
+            const div = document.createElement('div');
+            if (isPass === true) {
+                div.className = 'pass';
+                message = '✓ ' + message;
+            } else if (isPass === false) {
+                div.className = 'fail';
+                message = '✗ ' + message;
+            }
+            div.textContent = message;
+            output.appendChild(div);
+        }
+        
+        function section(title) {
+            const div = document.createElement('div');
+            div.className = 'test-section';
+            div.innerHTML = `<h2>${title}</h2>`;
+            output.appendChild(div);
+            return div;
+        }
+        
+        // Clear any existing session storage
+        sessionStorage.clear();
+        
+        // Test 1: Save and load preferences
+        section('Test 1: Save and load preferences');
+        const testPreferences = {
+            columnCount: 3,
+            showVideos: false,
+            expandGalleries: true
+        };
+        
+        savePreferences(testPreferences);
+        log('Saved preferences: ' + JSON.stringify(testPreferences));
+        
+        const loadedPreferences = loadPreferences();
+        log('Loaded preferences: ' + JSON.stringify(loadedPreferences));
+        
+        if (loadedPreferences) {
+            const match = 
+                loadedPreferences.columnCount === testPreferences.columnCount &&
+                loadedPreferences.showVideos === testPreferences.showVideos &&
+                loadedPreferences.expandGalleries === testPreferences.expandGalleries;
+            log('Preferences match: ' + (match ? 'PASS' : 'FAIL'), match);
+        } else {
+            log('FAIL: Could not load preferences', false);
+        }
+        
+        // Test 2: StateManager integration
+        section('Test 2: StateManager integration');
+        
+        const apiClient = new APIClient();
+        const responseParser = new ResponseParser();
+        const urlRouter = new URLRouter();
+        
+        const stateManager = new StateManager(apiClient, responseParser, urlRouter);
+        const initialState = stateManager.getState();
+        
+        log('Initial state from StateManager:');
+        log('  columnCount: ' + initialState.columnCount);
+        log('  showVideos: ' + initialState.showVideos);
+        log('  expandGalleries: ' + initialState.expandGalleries);
+        
+        const stateMatch = 
+            initialState.columnCount === testPreferences.columnCount &&
+            initialState.showVideos === testPreferences.showVideos &&
+            initialState.expandGalleries === testPreferences.expandGalleries;
+        log('State matches saved preferences: ' + (stateMatch ? 'PASS' : 'FAIL'), stateMatch);
+        
+        // Test 3: Preferences persist when changed
+        section('Test 3: Preferences persist when changed');
+        
+        stateManager.setColumnCount(6);
+        stateManager.setShowVideos(true);
+        stateManager.setExpandGalleries(false);
+        
+        const updatedPreferences = loadPreferences();
+        log('Updated preferences after state changes: ' + JSON.stringify(updatedPreferences));
+        
+        if (updatedPreferences) {
+            const updateMatch = 
+                updatedPreferences.columnCount === 6 &&
+                updatedPreferences.showVideos === true &&
+                updatedPreferences.expandGalleries === false;
+            log('Updated preferences match: ' + (updateMatch ? 'PASS' : 'FAIL'), updateMatch);
+        } else {
+            log('FAIL: Could not load updated preferences', false);
+        }
+        
+        // Test 4: New StateManager instance loads persisted preferences
+        section('Test 4: New StateManager instance loads persisted preferences');
+        
+        const newStateManager = new StateManager(apiClient, responseParser, urlRouter);
+        const newState = newStateManager.getState();
+        
+        log('New StateManager state:');
+        log('  columnCount: ' + newState.columnCount);
+        log('  showVideos: ' + newState.showVideos);
+        log('  expandGalleries: ' + newState.expandGalleries);
+        
+        const persistMatch = 
+            newState.columnCount === 6 &&
+            newState.showVideos === true &&
+            newState.expandGalleries === false;
+        log('New instance loaded persisted preferences: ' + (persistMatch ? 'PASS' : 'FAIL'), persistMatch);
+        
+        // Test 5: Default values when no preferences exist
+        section('Test 5: Default values when no preferences exist');
+        
+        sessionStorage.clear();
+        const defaultStateManager = new StateManager(apiClient, responseParser, urlRouter);
+        const defaultState = defaultStateManager.getState();
+        
+        log('Default state (no saved preferences):');
+        log('  columnCount: ' + defaultState.columnCount);
+        log('  showVideos: ' + defaultState.showVideos);
+        log('  expandGalleries: ' + defaultState.expandGalleries);
+        
+        const defaultMatch = 
+            defaultState.columnCount === 5 &&
+            defaultState.showVideos === true &&
+            defaultState.expandGalleries === false;
+        log('Default values correct: ' + (defaultMatch ? 'PASS' : 'FAIL'), defaultMatch);
+        
+        section('All tests completed!');
+    </script>
+</body>
+</html>

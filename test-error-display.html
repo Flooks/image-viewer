@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Display Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #ff4500;
+            margin-bottom: 20px;
+        }
+        
+        .test-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 10px 16px;
+            background-color: #ff4500;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background-color: #ff5722;
+        }
+        
+        /* Error Display Component Styles */
+        .error-display {
+            background-color: #fee;
+            border: 2px solid #fcc;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .error-icon-large {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .error-message-text {
+            color: #c33;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .retry-button {
+            padding: 10px 24px;
+            background-color: #ff4500;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .retry-button:hover {
+            background-color: #ff5722;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Error Display Component Test</h1>
+        
+        <div class="test-buttons">
+            <button onclick="show404SubredditError()">Show 404 Subreddit Error</button>
+            <button onclick="show404UserError()">Show 404 User Error</button>
+            <button onclick="show429Error()">Show Rate Limit Error</button>
+            <button onclick="show503Error()">Show Service Unavailable Error</button>
+            <button onclick="showNetworkError()">Show Network Error</button>
+            <button onclick="showNoMediaError()">Show No Media Error</button>
+            <button onclick="showNoPostsError()">Show No Posts Error</button>
+            <button onclick="hideError()">Hide Error</button>
+        </div>
+        
+        <div id="error-container"></div>
+    </div>
+    
+    <script>
+        // Simple ErrorDisplay implementation for testing
+        class ErrorDisplay {
+            constructor() {
+                this.container = document.createElement('div');
+                this.container.className = 'error-display';
+                this.container.style.display = 'none';
+            }
+            
+            show(errorMessage, showRetry = true) {
+                this.container.innerHTML = '';
+                
+                const errorIcon = document.createElement('div');
+                errorIcon.className = 'error-icon-large';
+                errorIcon.textContent = '⚠️';
+                this.container.appendChild(errorIcon);
+                
+                const messageElement = document.createElement('p');
+                messageElement.className = 'error-message-text';
+                messageElement.textContent = errorMessage;
+                this.container.appendChild(messageElement);
+                
+                if (showRetry) {
+                    const retryButton = document.createElement('button');
+                    retryButton.className = 'retry-button';
+                    retryButton.textContent = 'Retry';
+                    retryButton.addEventListener('click', () => {
+                        alert('Retry button clicked!');
+                        this.hide();
+                    });
+                    this.container.appendChild(retryButton);
+                }
+                
+                this.container.style.display = 'block';
+            }
+            
+            hide() {
+                this.container.style.display = 'none';
+                this.container.innerHTML = '';
+            }
+            
+            getElement() {
+                return this.container;
+            }
+        }
+        
+        // Create error display instance
+        const errorDisplay = new ErrorDisplay();
+        document.getElementById('error-container').appendChild(errorDisplay.getElement());
+        
+        // Test functions
+        function show404SubredditError() {
+            errorDisplay.show("Subreddit 'r/nonexistent' not found. Please check the spelling and try again.", true);
+        }
+        
+        function show404UserError() {
+            errorDisplay.show("User 'u/nonexistentuser' not found. Please check the spelling and try again.", true);
+        }
+        
+        function show429Error() {
+            errorDisplay.show("Too many requests. Please wait a moment and try again.", true);
+        }
+        
+        function show503Error() {
+            errorDisplay.show("Reddit is temporarily unavailable. Please try again later.", true);
+        }
+        
+        function showNetworkError() {
+            errorDisplay.show("Unable to connect to Reddit. Please check your internet connection.", true);
+        }
+        
+        function showNoMediaError() {
+            errorDisplay.show("No images or videos found in this subreddit", false);
+        }
+        
+        function showNoPostsError() {
+            errorDisplay.show("This subreddit has no posts yet", false);
+        }
+        
+        function hideError() {
+            errorDisplay.hide();
+        }
+    </script>
+</body>
+</html>

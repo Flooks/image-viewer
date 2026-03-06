@@ -1,0 +1,14 @@
+{
+  "name": "reddit-image-viewer",
+  "version": "1.0.0",
+  "description": "A locally-hosted web application for browsing Reddit images and videos",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "serve": "npx http-server -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

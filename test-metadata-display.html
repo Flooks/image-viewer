@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MetadataDisplay Component Test</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .test-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .test-section h2 {
+      margin-bottom: 15px;
+      color: #ff4500;
+      font-size: 18px;
+    }
+    
+    .test-description {
+      margin-bottom: 15px;
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .test-result {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>MetadataDisplay Component Test</h1>
+  
+  <div class="test-section">
+    <h2>Test 1: Complete Metadata</h2>
+    <p class="test-description">
+      Tests rendering with all metadata fields present (title, author, postURL).
+      The title should be a clickable link that opens in a new tab, and the author should be a clickable link that navigates within the app.
+    </p>
+    <div id="test1-container"></div>
+    <div class="test-result" id="test1-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 2: Missing Title</h2>
+    <p class="test-description">
+      Tests graceful handling when the title is missing. Should display "[No title]" placeholder.
+    </p>
+    <div id="test2-container"></div>
+    <div class="test-result" id="test2-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 3: Missing Author</h2>
+    <p class="test-description">
+      Tests graceful handling when the author is missing. Should display "u/[deleted]" placeholder.
+    </p>
+    <div id="test3-container"></div>
+    <div class="test-result" id="test3-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 4: Author Link Navigation</h2>
+    <p class="test-description">
+      Tests that clicking the author link prevents default navigation and triggers internal navigation.
+      Click the author link below and check the console for navigation event.
+    </p>
+    <div id="test4-container"></div>
+    <div class="test-result" id="test4-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 5: Post Title Link</h2>
+    <p class="test-description">
+      Tests that the post title link has target="_blank" and rel="noopener noreferrer" attributes.
+    </p>
+    <div id="test5-container"></div>
+    <div class="test-result" id="test5-result"></div>
+  </div>
+
+  <script type="module">
+    import { MetadataDisplay, APIClient, ResponseParser, URLRouter, StateManager } from './app.ts';
+    
+    // Create mock state manager for testing
+    const apiClient = new APIClient();
+    const responseParser = new ResponseParser();
+    const urlRouter = new URLRouter();
+    const stateManager = new StateManager(apiClient, responseParser, urlRouter);
+    
+    // Override setContentSource to log navigation instead of actually navigating
+    const originalSetContentSource = stateManager.setContentSource.bind(stateManager);
+    stateManager.setContentSource = async (source) => {
+      console.log('Navigation triggered:', source);
+      document.getElementById('test4-result').textContent = `✓ Navigation triggered: ${JSON.stringify(source)}`;
+      return Promise.resolve();
+    };
+    
+    // Create MetadataDisplay instance
+    const metadataDisplay = new MetadataDisplay(stateManager);
+    
+    // Test 1: Complete metadata
+    try {
+      const metadata1 = {
+        title: 'Amazing sunset photo from r/pics',
+        author: 'photographer123',
+        postURL: 'https://www.reddit.com/r/pics/comments/abc123/amazing_sunset/'
+      };
+      
+      const element1 = metadataDisplay.render(metadata1);
+      document.getElementById('test1-container').appendChild(element1);
+      
+      // Verify structure
+      const titleLink = element1.querySelector('.post-title-link');
+      const authorLink = element1.querySelector('.author-username-link');
+      
+      const checks = [
+        titleLink ? '✓ Title link rendered' : '✗ Title link missing',
+        titleLink?.textContent === metadata1.title ? '✓ Title text correct' : '✗ Title text incorrect',
+        titleLink?.getAttribute('href') === metadata1.postURL ? '✓ Title href correct' : '✗ Title href incorrect',
+        titleLink?.getAttribute('target') === '_blank' ? '✓ Title target="_blank"' : '✗ Title target missing',
+        authorLink ? '✓ Author link rendered' : '✗ Author link missing',
+        authorLink?.textContent === `u/${metadata1.author}` ? '✓ Author text correct' : '✗ Author text incorrect',
+        authorLink?.getAttribute('href') === `/u/${metadata1.author}` ? '✓ Author href correct' : '✗ Author href incorrect'
+      ];
+      
+      document.getElementById('test1-result').textContent = checks.join('\n');
+    } catch (error) {
+      document.getElementById('test1-result').textContent = `✗ Error: ${error.message}`;
+    }
+    
+    // Test 2: Missing title
+    try {
+      const metadata2 = {
+        title: '',
+        author: 'user456',
+        postURL: 'https://www.reddit.com/r/test/comments/def456/test/'
+      };
+      
+      const element2 = metadataDisplay.render(metadata2);
+      document.getElementById('test2-container').appendChild(element2);
+      
+      const titleContainer = element2.querySelector('.post-title');
+      const hasPlaceholder = titleContainer?.textContent.includes('[No title]');
+      
+      document.getElementById('test2-result').textContent = 
+        hasPlaceholder ? '✓ Placeholder displayed for missing title' : '✗ Placeholder not displayed';
+    } catch (error) {
+      document.getElementById('test2-result').textContent = `✗ Error: ${error.message}`;
+    }
+    
+    // Test 3: Missing author
+    try {
+      const metadata3 = {
+        title: 'Test post',
+        author: '',
+        postURL: 'https://www.reddit.com/r/test/comments/ghi789/test/'
+      };
+      
+      const element3 = metadataDisplay.render(metadata3);
+      document.getElementById('test3-container').appendChild(element3);
+      
+      const authorContainer = element3.querySelector('.post-author');
+      const hasPlaceholder = authorContainer?.textContent.includes('[deleted]');
+      
+      document.getElementById('test3-result').textContent = 
+        hasPlaceholder ? '✓ Placeholder displayed for missing author' : '✗ Placeholder not displayed';
+    } catch (error) {
+      document.getElementById('test3-result').textContent = `✗ Error: ${error.message}`;
+    }
+    
+    // Test 4: Author link navigation
+    try {
+      const metadata4 = {
+        title: 'Click the author link below',
+        author: 'testuser',
+        postURL: 'https://www.reddit.com/r/test/comments/jkl012/test/'
+      };
+      
+      const element4 = metadataDisplay.render(metadata4);
+      document.getElementById('test4-container').appendChild(element4);
+      
+      document.getElementById('test4-result').textContent = 
+        '⏳ Click the author link above to test navigation';
+    } catch (error) {
+      document.getElementById('test4-result').textContent = `✗ Error: ${error.message}`;
+    }
+    
+    // Test 5: Post title link attributes
+    try {
+      const metadata5 = {
+        title: 'Security test post',
+        author: 'securityuser',
+        postURL: 'https://www.reddit.com/r/test/comments/mno345/security/'
+      };
+      
+      const element5 = metadataDisplay.render(metadata5);
+      document.getElementById('test5-container').appendChild(element5);
+      
+      const titleLink = element5.querySelector('.post-title-link');
+      const checks = [
+        titleLink?.getAttribute('target') === '_blank' ? '✓ target="_blank" present' : '✗ target="_blank" missing',
+        titleLink?.getAttribute('rel') === 'noopener noreferrer' ? '✓ rel="noopener noreferrer" present' : '✗ rel attribute missing'
+      ];
+      
+      document.getElementById('test5-result').textContent = checks.join('\n');
+    } catch (error) {
+      document.getElementById('test5-result').textContent = `✗ Error: ${error.message}`;
+    }
+    
+    console.log('All tests initialized');
+  </script>
+</body>
+</html>

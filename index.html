@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Image Viewer</title>
+    <link rel="stylesheet" href="styles.css?v=109">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <div id="search-container"></div>
+                <div id="controls-container">
+                    <div id="sort-container"></div>
+                    <div id="column-selector-container"></div>
+                    <div id="video-toggle-container"></div>
+                    <div id="gallery-toggle-container"></div>
+                </div>
+            </div>
+        </header>
+        
+        <main>
+            <div id="error-container"></div>
+            <div id="loading-container"></div>
+            <div id="gallery-container"></div>
+        </main>
+    </div>
+    
+    <script type="module" src="app.js?v=111"></script>
+</body>
+</html>
