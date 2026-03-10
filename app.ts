@@ -3227,20 +3227,33 @@ export class MediaGallery {
     const image = document.createElement('img');
     image.className = 'media-image';
     image.alt = post.metadata.title || 'Reddit image';
-
-    // Style images to indicate they are clickable
-    // Requirements: 18.5
     image.style.cursor = 'pointer';
-
-    // Implement click handler to open full-size images in new tab
-    // Requirements: 18.1, 18.2
-    image.addEventListener('click', () => {
-      window.open(post.url, '_blank', 'noopener,noreferrer');
-    });
-
-    // Handle progressive image loading
-    // Requirements: 3.5
     image.loading = 'lazy';
+    
+    // Check if this is a GIF (static preview)
+    const isGif = post.url.toLowerCase().includes('.gif');
+    
+    if (isGif) {
+      // Add gif-preview class for styling
+      image.classList.add('gif-preview');
+      
+      // Add GIF badge overlay
+      const gifBadge = document.createElement('div');
+      gifBadge.className = 'gif-badge';
+      gifBadge.textContent = 'GIF';
+      imageContainer.appendChild(gifBadge);
+      
+      // For GIFs, just open the Reddit post URL which will show the animated version
+      // Reddit's post page handles GIF playback properly
+      image.addEventListener('click', () => {
+        window.open(post.metadata.postURL, '_blank', 'noopener,noreferrer');
+      });
+    } else {
+      // Regular image - click to open in new tab
+      image.addEventListener('click', () => {
+        window.open(post.url, '_blank', 'noopener,noreferrer');
+      });
+    }
 
     // Display placeholders for failed image loads
     // Requirements: 3.6
@@ -3249,7 +3262,6 @@ export class MediaGallery {
     });
 
     // Use thumbnail for display if available, otherwise use full-size URL
-    // This improves loading performance by using smaller images in the grid
     image.src = post.thumbnailUrl || post.url;
 
     imageContainer.appendChild(image);
