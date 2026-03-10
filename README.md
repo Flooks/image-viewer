@@ -25,7 +25,28 @@ A locally-hosted web application for browsing images and videos from Reddit subr
    npm run build
    ```
 
-3. Open `index.html` in your web browser
+3. Start the local server:
+
+   **On Windows:**
+   - Double-click `start-server.bat` for a visible console window
+   - Or double-click `start-server-hidden.vbs` to run in background
+   
+   **On Ubuntu/Linux:**
+   ```bash
+   # Make scripts executable (first time only)
+   chmod +x start-server.sh restart-server.sh stop-server.sh
+   
+   # Start server (foreground)
+   ./start-server.sh
+   
+   # Or start in background
+   ./restart-server.sh
+   
+   # Stop server
+   ./stop-server.sh
+   ```
+
+4. Open your browser to `http://localhost:8000`
 
 ## Usage
 

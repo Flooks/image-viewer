@@ -29,8 +29,10 @@ export interface GalleryData {
 export interface ImagePost {
   type: 'image';
   url: string;
+  thumbnailUrl?: string;
   metadata: PostMetadata;
 }
+
 
 export interface VideoPost {
   type: 'video';
@@ -416,10 +418,14 @@ export class APIClient {
     after?: string
   ): Promise<RedditAPIResult> {
     // Construct the API URL for user submitted posts
-    let redditUrl = `https://www.reddit.com/user/${username}/submitted/${sortOrder}.json`;
+    // Note: Reddit user API uses query parameter for sort, not URL path
+    let redditUrl = `https://www.reddit.com/user/${username}/submitted.json`;
     
     // Build query parameters
     const params = new URLSearchParams();
+    
+    // Add sort parameter
+    params.append('sort', sortOrder);
     
     // Add timespan parameter if provided (for top/controversial sorting)
     if (timespan) {
@@ -431,11 +437,8 @@ export class APIClient {
       params.append('after', after);
     }
     
-    // Append query string if we have parameters
-    const queryString = params.toString();
-    if (queryString) {
-      redditUrl += `?${queryString}`;
-    }
+    // Append query string
+    redditUrl += `?${params.toString()}`;
     
     // Use CORS proxy
     const url = this.corsProxy + encodeURIComponent(redditUrl);
@@ -515,11 +518,12 @@ export class ResponseParser {
       }
       
       // Try to extract image URL
-      const imageURL = this.extractImageURL(postData);
-      if (imageURL) {
+      const imageData = this.extractImageURL(postData);
+      if (imageData) {
         mediaPosts.push({
           type: 'image',
-          url: imageURL,
+          url: imageData.url,
+          thumbnailUrl: imageData.thumbnailUrl,
           metadata
         });
       }
@@ -539,14 +543,34 @@ export class ResponseParser {
    * Extract image URL from post data
    * Supports JPEG, PNG, GIF, and WEBP formats
    * @param post The Reddit post data
-   * @returns Image URL if post contains a valid image, null otherwise
+   * @returns Object with full-size URL and thumbnail URL, or null if no valid image
    */
-  extractImageURL(post: RedditPostData): string | null {
+  extractImageURL(post: RedditPostData): { url: string; thumbnailUrl?: string } | null {
+    // Skip video posts - they should be handled by extractVideoData
+    if (post.is_video) {
+      return null;
+    }
+    
     // Try to get the highest quality image from preview first
     if (post.preview?.images?.[0]?.source?.url) {
       // Decode HTML entities in the URL (Reddit encodes & as &amp;)
-      const imageURL = post.preview.images[0].source.url.replace(/&amp;/g, '&');
-      return imageURL;
+      const fullSizeURL = post.preview.images[0].source.url.replace(/&amp;/g, '&');
+      
+      // Try to get the largest thumbnail from resolutions array
+      let thumbnailURL: string | undefined;
+      const resolutions = post.preview.images[0].resolutions;
+      if (resolutions && resolutions.length > 0) {
+        // Get the largest resolution (last in array) as thumbnail
+        const largestResolution = resolutions[resolutions.length - 1];
+        if (largestResolution?.url) {
+          thumbnailURL = largestResolution.url.replace(/&amp;/g, '&');
+        }
+      }
+      
+      return {
+        url: fullSizeURL,
+        thumbnailUrl: thumbnailURL
+      };
     }
     
     // Fallback to post.url if preview is not available
@@ -554,14 +578,14 @@ export class ResponseParser {
     if (post.post_hint === 'image') {
       // Validate the URL has a supported image extension
       if (this.isValidImageFormat(post.url)) {
-        return post.url;
+        return { url: post.url };
       }
     }
     
     // Also check the URL directly for image extensions
     // This handles cases where post_hint might be missing
     if (this.isValidImageFormat(post.url)) {
-      return post.url;
+      return { url: post.url };
     }
     
     return null;
@@ -579,7 +603,7 @@ export class ResponseParser {
       const redditVideo = post.media.reddit_video;
       
       return {
-        url: redditVideo.hls_url || redditVideo.fallback_url,
+        url: redditVideo.fallback_url || redditVideo.hls_url,
         fallbackURL: redditVideo.fallback_url
       };
     }
@@ -647,7 +671,7 @@ console.log('Response Parser loaded');
 export class InfiniteScrollManager {
   private enabled: boolean = false;
   private onLoadMore: (() => Promise<void>) | null = null;
-  private scrollThreshold: number = 500; // pixels from bottom
+  private scrollThreshold: number = 1500; // pixels from bottom
   private isThrottled: boolean = false;
   private throttleDelay: number = 200; // milliseconds
   
@@ -2736,27 +2760,29 @@ export class GalleryCarousel {
     // Create previous button
     this.prevButton = document.createElement('button');
     this.prevButton.className = 'carousel-button carousel-prev';
-    this.prevButton.textContent = '← Previous';
+    this.prevButton.innerHTML = '‹';
+    this.prevButton.setAttribute('aria-label', 'Previous image');
     this.prevButton.addEventListener('click', () => {
       this.previous();
     });
     controlsContainer.appendChild(this.prevButton);
     
-    // Create position indicator
-    this.positionIndicator = document.createElement('span');
-    this.positionIndicator.className = 'carousel-position';
-    controlsContainer.appendChild(this.positionIndicator);
-    
     // Create next button
     this.nextButton = document.createElement('button');
     this.nextButton.className = 'carousel-button carousel-next';
-    this.nextButton.textContent = 'Next →';
+    this.nextButton.innerHTML = '›';
+    this.nextButton.setAttribute('aria-label', 'Next image');
     this.nextButton.addEventListener('click', () => {
       this.next();
     });
     controlsContainer.appendChild(this.nextButton);
     
     this.container.appendChild(controlsContainer);
+    
+    // Create position indicator (separate from controls)
+    this.positionIndicator = document.createElement('div');
+    this.positionIndicator.className = 'carousel-indicator';
+    this.container.appendChild(this.positionIndicator);
     
     // Load the first image and update UI
     this.updateDisplay();
@@ -3071,6 +3097,29 @@ export class MediaGallery {
       });
     } else {
       // Replace mode: clear and render all items
+      // Find the item closest to the middle of the viewport to use as scroll anchor
+      let anchorIndex = -1;
+      let anchorOffsetFromTop = 0;
+      const items = this.container.querySelectorAll('.media-item');
+      const viewportTop = window.scrollY;
+      const viewportMiddle = viewportTop + (window.innerHeight / 2);
+      
+      let closestDistance = Infinity;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i] as HTMLElement;
+        const rect = item.getBoundingClientRect();
+        const itemTop = rect.top + window.scrollY;
+        const itemMiddle = itemTop + (rect.height / 2);
+        
+        const distance = Math.abs(itemMiddle - viewportMiddle);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          anchorIndex = i;
+          // Store how far down we were in this item
+          anchorOffsetFromTop = viewportTop - itemTop;
+        }
+      }
+      
       this.clear();
 
       // Apply column count class to container
@@ -3092,6 +3141,22 @@ export class MediaGallery {
       // Add loading indicator at the bottom if it exists
       if (this.loadingIndicatorElement) {
         this.container.appendChild(this.loadingIndicatorElement);
+      }
+      
+      // Scroll to anchor item after rendering
+      if (anchorIndex >= 0) {
+        requestAnimationFrame(() => {
+          const newItems = this.container.querySelectorAll('.media-item');
+          if (newItems[anchorIndex]) {
+            const anchorElement = newItems[anchorIndex] as HTMLElement;
+            const rect = anchorElement.getBoundingClientRect();
+            const absoluteTop = rect.top + window.scrollY;
+            // Try to maintain relative position within the item
+            // But cap the offset to prevent scrolling too far down
+            const cappedOffset = Math.min(anchorOffsetFromTop, rect.height * 0.3);
+            window.scrollTo(0, absoluteTop + cappedOffset);
+          }
+        });
       }
     }
 
@@ -3167,7 +3232,7 @@ export class MediaGallery {
     // Requirements: 18.5
     image.style.cursor = 'pointer';
 
-    // Implement click handler to open images in new tab
+    // Implement click handler to open full-size images in new tab
     // Requirements: 18.1, 18.2
     image.addEventListener('click', () => {
       window.open(post.url, '_blank', 'noopener,noreferrer');
@@ -3183,8 +3248,9 @@ export class MediaGallery {
       this.handleImageLoadError(imageContainer, image);
     });
 
-    // Set image source to trigger loading
-    image.src = post.url;
+    // Use thumbnail for display if available, otherwise use full-size URL
+    // This improves loading performance by using smaller images in the grid
+    image.src = post.thumbnailUrl || post.url;
 
     imageContainer.appendChild(image);
 
@@ -3583,6 +3649,38 @@ export function initializeApplication(): void {
   }
   
   console.log('Reddit Image Viewer application initialized successfully!');
+  
+  // Step 13: Set up sticky header scroll behavior
+  let lastScrollY = window.scrollY;
+  let ticking = false;
+  
+  const header = document.querySelector('header');
+  
+  const updateHeaderVisibility = () => {
+    const currentScrollY = window.scrollY;
+    
+    // Show header when scrolling up or at the top
+    if (currentScrollY < lastScrollY || currentScrollY < 10) {
+      header?.classList.remove('header-hidden');
+    } 
+    // Hide header when scrolling down (but only after scrolling past 100px)
+    else if (currentScrollY > 100) {
+      header?.classList.add('header-hidden');
+    }
+    
+    lastScrollY = currentScrollY;
+    ticking = false;
+  };
+  
+  const onScroll = () => {
+    if (!ticking) {
+      window.requestAnimationFrame(updateHeaderVisibility);
+      ticking = true;
+    }
+  };
+  
+  window.addEventListener('scroll', onScroll);
+  console.log('Sticky header scroll behavior initialized');
 }
 
 // Auto-initialize when DOM is ready
