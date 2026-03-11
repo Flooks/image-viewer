@@ -31,6 +31,8 @@ export interface ImagePost {
   url: string;
   thumbnailUrl?: string;
   metadata: PostMetadata;
+  externalUrl?: string;
+  isExternalVideo?: boolean;
 }
 
 
@@ -46,7 +48,14 @@ export interface GalleryPost {
   metadata: PostMetadata;
 }
 
-export type MediaPost = ImagePost | VideoPost | GalleryPost;
+export interface ExternalEmbedPost {
+  type: 'external-embed';
+  embedUrl: string;
+  externalUrl: string;
+  metadata: PostMetadata;
+}
+
+export type MediaPost = ImagePost | VideoPost | GalleryPost | ExternalEmbedPost;
 
 // Parsed Response Result
 export interface ParsedResult {
@@ -518,24 +527,33 @@ export class ResponseParser {
         continue;
       }
       
+      // Try to extract external embed (e.g., Redgifs)
+      const embedUrl = this.extractExternalEmbed(postData);
+      if (embedUrl) {
+        mediaPosts.push({
+          type: 'external-embed',
+          embedUrl: embedUrl,
+          externalUrl: postData.url,
+          metadata
+        });
+        continue;
+      }
+      
       // Try to extract image URL
       const imageData = this.extractImageURL(postData);
       if (imageData) {
-        // Debug: Log external preview URLs
-        if (imageData.url.includes('external-preview.redd.it')) {
-          console.log('External preview detected:', {
-            title: postData.title,
-            preview_url: imageData.url,
-            post_url: postData.url,
-            domain: postData.domain,
-            post_hint: postData.post_hint
-          });
-        }
+        // Check if this is an external video/GIF post
+        const isExternalVideo = postData.post_hint === 'rich:video' || 
+                                postData.domain?.includes('gfycat') ||
+                                postData.domain?.includes('redgifs') ||
+                                postData.domain?.includes('imgur');
         
         mediaPosts.push({
           type: 'image',
           url: imageData.url,
           thumbnailUrl: imageData.thumbnailUrl,
+          externalUrl: postData.url,
+          isExternalVideo: isExternalVideo,
           metadata
         });
       }
@@ -551,6 +569,27 @@ export class ResponseParser {
     };
   }
   
+  /**
+   * Extract external embed data (e.g., Redgifs)
+   * @param post The Reddit post data
+   * @returns Embed URL if post is an embeddable external video, null otherwise
+   */
+  extractExternalEmbed(post: RedditPostData): string | null {
+    // Check if this is a Redgifs post
+    if (post.domain?.includes('redgifs.com') && post.url) {
+      // Extract video ID from URL
+      // URL format: https://redgifs.com/watch/videoId or https://www.redgifs.com/watch/videoId
+      const match = post.url.match(/redgifs\.com\/watch\/([a-zA-Z0-9]+)/i);
+      if (match && match[1]) {
+        const videoId = match[1];
+        // Return iframe embed URL
+        return `https://redgifs.com/ifr/${videoId}`;
+      }
+    }
+    
+    return null;
+  }
+
   /**
    * Extract image URL from post data
    * Supports JPEG, PNG, GIF, and WEBP formats
@@ -3044,6 +3083,47 @@ export class VideoPlayer {
 console.log('Video Player loaded');
 
 /**
+ * ExternalEmbedPlayer component for rendering external video embeds (e.g., Redgifs)
+ */
+export class ExternalEmbedPlayer {
+  private container: HTMLElement;
+  private embedUrl: string;
+  private externalUrl: string;
+  private metadata: PostMetadata;
+  
+  constructor(embedUrl: string, externalUrl: string, metadata: PostMetadata) {
+    this.embedUrl = embedUrl;
+    this.externalUrl = externalUrl;
+    this.metadata = metadata;
+    
+    this.container = document.createElement('div');
+    this.container.className = 'external-embed-player';
+    
+    const embedContainer = document.createElement('div');
+    embedContainer.className = 'embed-container';
+    
+    // Create iframe for embed
+    const iframe = document.createElement('iframe');
+    iframe.className = 'embed-iframe';
+    iframe.src = this.embedUrl;
+    iframe.setAttribute('frameborder', '0');
+    iframe.setAttribute('scrolling', 'no');
+    iframe.setAttribute('allowfullscreen', 'true');
+    iframe.style.width = '100%';
+    iframe.style.height = '400px';
+    
+    embedContainer.appendChild(iframe);
+    this.container.appendChild(embedContainer);
+  }
+  
+  render(): HTMLElement {
+    return this.container;
+  }
+}
+
+console.log('External Embed Player loaded');
+
+/**
  * MediaGallery component for rendering media content in a grid layout
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 11.2, 11.3, 13.3, 13.4, 13.7, 14.3, 15.1, 15.2, 15.5, 15.6, 18.1, 18.2, 18.4, 18.5
  */
@@ -3199,6 +3279,10 @@ export class MediaGallery {
       const videoPlayer = new VideoPlayer(post.videoData, post.metadata);
       this.videoPlayers.push(videoPlayer); // Track video player
       mediaElement = videoPlayer.render();
+    } else if (post.type === 'external-embed') {
+      // Render external embed posts (e.g., Redgifs)
+      const embedPlayer = new ExternalEmbedPlayer(post.embedUrl, post.externalUrl, post.metadata);
+      mediaElement = embedPlayer.render();
     } else if (post.type === 'gallery') {
       // Render gallery posts based on expand toggle
       // Requirements: 3.4, 13.3, 13.4
@@ -3235,48 +3319,83 @@ export class MediaGallery {
   private createImageElement(post: ImagePost): HTMLElement {
     const imageContainer = document.createElement('div');
     imageContainer.className = 'image-container';
-
-    const image = document.createElement('img');
-    image.className = 'media-image';
-    image.alt = post.metadata.title || 'Reddit image';
-    image.style.cursor = 'pointer';
-    image.loading = 'lazy';
     
     // Check if this is a GIF (static preview)
     const isGif = post.url.toLowerCase().includes('.gif');
     
-    if (isGif) {
-      // Add gif-preview class for styling
-      image.classList.add('gif-preview');
+    // Check if this is an external video/GIF
+    if (post.isExternalVideo) {
+      // Add external video badge
+      const badge = document.createElement('div');
+      badge.className = 'gif-badge';
+      badge.textContent = 'LINK';
+      badge.style.backgroundColor = 'rgba(0, 100, 200, 0.75)';
+      imageContainer.appendChild(badge);
       
-      // Add GIF badge overlay
+      const image = document.createElement('img');
+      image.className = 'media-image';
+      image.alt = post.metadata.title || 'External video';
+      image.style.cursor = 'pointer';
+      image.loading = 'lazy';
+      
+      // Click to open external URL
+      image.addEventListener('click', () => {
+        window.open(post.externalUrl, '_blank', 'noopener,noreferrer');
+      });
+      
+      image.addEventListener('error', () => {
+        this.handleImageLoadError(imageContainer, image);
+      });
+      
+      image.src = post.thumbnailUrl || post.url;
+      imageContainer.appendChild(image);
+      
+    } else if (isGif) {
+      // GIFs cannot be embedded due to Reddit CORS policy
+      // Show static preview with GIF badge
+      const image = document.createElement('img');
+      image.className = 'media-image';
+      image.alt = post.metadata.title || 'Reddit GIF';
+      image.style.cursor = 'pointer';
+      image.loading = 'lazy';
+      
+      // Add GIF badge
       const gifBadge = document.createElement('div');
       gifBadge.className = 'gif-badge';
       gifBadge.textContent = 'GIF';
       imageContainer.appendChild(gifBadge);
       
-      // For GIFs, just open the Reddit post URL which will show the animated version
-      // Reddit's post page handles GIF playback properly
+      // Click to open Reddit post where GIF will play
       image.addEventListener('click', () => {
         window.open(post.metadata.postURL, '_blank', 'noopener,noreferrer');
       });
+      
+      image.addEventListener('error', () => {
+        this.handleImageLoadError(imageContainer, image);
+      });
+      
+      image.src = post.thumbnailUrl || post.url;
+      imageContainer.appendChild(image);
+      
     } else {
-      // Regular image - click to open in new tab
+      // Regular image
+      const image = document.createElement('img');
+      image.className = 'media-image';
+      image.alt = post.metadata.title || 'Reddit image';
+      image.style.cursor = 'pointer';
+      image.loading = 'lazy';
+      
       image.addEventListener('click', () => {
         window.open(post.url, '_blank', 'noopener,noreferrer');
       });
+      
+      image.addEventListener('error', () => {
+        this.handleImageLoadError(imageContainer, image);
+      });
+      
+      image.src = post.thumbnailUrl || post.url;
+      imageContainer.appendChild(image);
     }
-
-    // Display placeholders for failed image loads
-    // Requirements: 3.6
-    image.addEventListener('error', () => {
-      this.handleImageLoadError(imageContainer, image);
-    });
-
-    // Use thumbnail for display if available, otherwise use full-size URL
-    image.src = post.thumbnailUrl || post.url;
-
-    imageContainer.appendChild(image);
 
     return imageContainer;
   }
