@@ -288,10 +288,13 @@ export class ResponseParser {
             // Try to extract external embed (e.g., Redgifs)
             const embedUrl = this.extractExternalEmbed(postData);
             if (embedUrl) {
+                // Also get preview image for click-to-play
+                const imageData = this.extractImageURL(postData);
                 mediaPosts.push({
                     type: 'external-embed',
                     embedUrl: embedUrl,
                     externalUrl: postData.url,
+                    previewUrl: imageData?.url,
                     metadata
                 });
                 continue;
@@ -2387,12 +2390,51 @@ console.log('Video Player loaded');
  * ExternalEmbedPlayer component for rendering external video embeds (e.g., Redgifs)
  */
 export class ExternalEmbedPlayer {
-    constructor(embedUrl, externalUrl, metadata) {
+    constructor(embedUrl, externalUrl, previewUrl, metadata) {
+        this.isPlaying = false;
         this.embedUrl = embedUrl;
         this.externalUrl = externalUrl;
+        this.previewUrl = previewUrl;
         this.metadata = metadata;
         this.container = document.createElement('div');
         this.container.className = 'external-embed-player';
+        if (this.previewUrl) {
+            // Show preview with play button
+            this.renderPreview();
+        }
+        else {
+            // No preview available, load iframe directly
+            this.renderIframe();
+        }
+    }
+    renderPreview() {
+        const previewContainer = document.createElement('div');
+        previewContainer.className = 'embed-preview-container';
+        previewContainer.style.position = 'relative';
+        previewContainer.style.cursor = 'pointer';
+        // Preview image
+        const previewImg = document.createElement('img');
+        previewImg.src = this.previewUrl;
+        previewImg.style.width = '100%';
+        previewImg.style.height = 'auto';
+        previewImg.style.display = 'block';
+        // Play button overlay
+        const playButton = document.createElement('div');
+        playButton.className = 'embed-play-button';
+        playButton.innerHTML = '▶';
+        previewContainer.appendChild(previewImg);
+        previewContainer.appendChild(playButton);
+        // Click to load iframe
+        previewContainer.addEventListener('click', () => {
+            if (!this.isPlaying) {
+                this.container.innerHTML = '';
+                this.renderIframe();
+                this.isPlaying = true;
+            }
+        });
+        this.container.appendChild(previewContainer);
+    }
+    renderIframe() {
         const embedContainer = document.createElement('div');
         embedContainer.className = 'embed-container';
         // Create iframe for embed
@@ -2454,7 +2496,7 @@ export class MediaGallery {
             // Requirements: 11.2, 11.3, 20.13
             const filteredNewPosts = config.showVideos
                 ? newPosts
-                : newPosts.filter(post => post.type !== 'video');
+                : newPosts.filter(post => post.type !== 'video' && post.type !== 'external-embed');
             // Render each new media item and append to container
             filteredNewPosts.forEach(post => {
                 const mediaItem = this.createMediaItem(post, config);
@@ -2497,7 +2539,7 @@ export class MediaGallery {
             // Requirements: 11.2, 11.3
             const filteredPosts = config.showVideos
                 ? posts
-                : posts.filter(post => post.type !== 'video');
+                : posts.filter(post => post.type !== 'video' && post.type !== 'external-embed');
             // Render each media item
             filteredPosts.forEach(post => {
                 const mediaItem = this.createMediaItem(post, config);
@@ -2551,7 +2593,7 @@ export class MediaGallery {
         }
         else if (post.type === 'external-embed') {
             // Render external embed posts (e.g., Redgifs)
-            const embedPlayer = new ExternalEmbedPlayer(post.embedUrl, post.externalUrl, post.metadata);
+            const embedPlayer = new ExternalEmbedPlayer(post.embedUrl, post.externalUrl, post.previewUrl, post.metadata);
             mediaElement = embedPlayer.render();
         }
         else if (post.type === 'gallery') {
