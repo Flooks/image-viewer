@@ -288,6 +288,16 @@ export class ResponseParser {
             // Try to extract image URL
             const imageData = this.extractImageURL(postData);
             if (imageData) {
+                // Debug: Log external preview URLs
+                if (imageData.url.includes('external-preview.redd.it')) {
+                    console.log('External preview detected:', {
+                        title: postData.title,
+                        preview_url: imageData.url,
+                        post_url: postData.url,
+                        domain: postData.domain,
+                        post_hint: postData.post_hint
+                    });
+                }
                 mediaPosts.push({
                     type: 'image',
                     url: imageData.url,
