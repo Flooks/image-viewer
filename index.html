@@ -4,18 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reddit Image Viewer</title>
-    <link rel="stylesheet" href="styles.css?v=119">
+    <link rel="stylesheet" href="styles.css?v=127">
 </head>
 <body>
     <div id="app">
         <header>
-            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+            <div class="header-bar">
                 <div id="search-container"></div>
                 <div id="controls-container">
                     <div id="sort-container"></div>
                     <div id="column-selector-container"></div>
-                    <div id="video-toggle-container"></div>
-                    <div id="gallery-toggle-container"></div>
+                    <div class="toggle-group-container">
+                        <div id="video-toggle-container"></div>
+                        <div id="gallery-toggle-container"></div>
+                        <div id="dark-mode-toggle-container"></div>
+                        <div id="layout-toggle-container"></div>
+                    </div>
                 </div>
             </div>
         </header>
@@ -27,6 +31,6 @@
         </main>
     </div>
     
-    <script type="module" src="app.js?v=145"></script>
+    <script type="module" src="app.js?v=158"></script>
 </body>
 </html>

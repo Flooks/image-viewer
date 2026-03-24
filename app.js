@@ -96,12 +96,12 @@ export function validateSubredditName(name) {
             error: 'Please enter a subreddit name or username'
         };
     }
-    // Check for valid characters (alphanumeric and underscore only)
-    const validPattern = /^[a-zA-Z0-9_]+$/;
+    // Check for valid characters (alphanumeric, underscore, and + for multi-subreddit)
+    const validPattern = /^[a-zA-Z0-9_]+(\+[a-zA-Z0-9_]+)*$/;
     if (!validPattern.test(name)) {
         return {
             valid: false,
-            error: 'Subreddit names can only contain letters, numbers, and underscores'
+            error: 'Subreddit names can only contain letters, numbers, and underscores. Use + to combine multiple (e.g. pics+art)'
         };
     }
     return {
@@ -278,6 +278,14 @@ export class ResponseParser {
             // Try to extract video data
             const videoData = this.extractVideoData(postData);
             if (videoData) {
+                // Grab preview image as poster for lazy loading
+                const previewUrl = postData.preview?.images?.[0]?.resolutions;
+                if (previewUrl && previewUrl.length > 0) {
+                    videoData.posterUrl = previewUrl[previewUrl.length - 1].url?.replace(/&amp;/g, '&');
+                }
+                else if (postData.preview?.images?.[0]?.source?.url) {
+                    videoData.posterUrl = postData.preview.images[0].source.url.replace(/&amp;/g, '&');
+                }
                 mediaPosts.push({
                     type: 'video',
                     videoData,
@@ -299,6 +307,35 @@ export class ResponseParser {
                 });
                 continue;
             }
+            // Debug logging for GIF posts - inspect all available fields
+            if (postData.url?.toLowerCase().includes('.gif')) {
+                const variants = postData.preview?.images?.[0]?.variants;
+                console.log('🎬 GIF Post Debug:', {
+                    title: postData.title,
+                    url: postData.url,
+                    domain: postData.domain,
+                    post_hint: postData.post_hint,
+                    url_overridden_by_dest: postData.url_overridden_by_dest,
+                    has_variants: !!variants,
+                    variant_gif_source: variants?.gif?.source?.url?.replace(/&amp;/g, '&'),
+                    variant_gif_resolutions: variants?.gif?.resolutions?.map(r => ({
+                        url: r.url?.replace(/&amp;/g, '&'),
+                        width: r.width,
+                        height: r.height
+                    })),
+                    variant_mp4_source: variants?.mp4?.source?.url?.replace(/&amp;/g, '&'),
+                    variant_mp4_resolutions: variants?.mp4?.resolutions?.map(r => ({
+                        url: r.url?.replace(/&amp;/g, '&'),
+                        width: r.width,
+                        height: r.height
+                    })),
+                    secure_media: postData.secure_media,
+                    secure_media_embed: postData.secure_media_embed,
+                    media_embed: postData.media_embed,
+                    media: postData.media,
+                    preview_source: postData.preview?.images?.[0]?.source?.url?.replace(/&amp;/g, '&')
+                });
+            }
             // Try to extract image URL
             const imageData = this.extractImageURL(postData);
             if (imageData) {
@@ -311,6 +348,7 @@ export class ResponseParser {
                     type: 'image',
                     url: imageData.url,
                     thumbnailUrl: imageData.thumbnailUrl,
+                    gifVideoUrl: imageData.gifVideoUrl,
                     externalUrl: postData.url,
                     isExternalVideo: isExternalVideo,
                     metadata
@@ -369,9 +407,16 @@ export class ResponseParser {
                     thumbnailURL = largestResolution.url.replace(/&amp;/g, '&');
                 }
             }
+            // Check for MP4 variant (used for GIF posts)
+            let gifVideoURL;
+            const variants = post.preview.images[0].variants;
+            if (variants?.mp4?.source?.url) {
+                gifVideoURL = variants.mp4.source.url.replace(/&amp;/g, '&');
+            }
             return {
                 url: fullSizeURL,
-                thumbnailUrl: thumbnailURL
+                thumbnailUrl: thumbnailURL,
+                gifVideoUrl: gifVideoURL
             };
         }
         // Fallback to post.url if preview is not available
@@ -418,20 +463,30 @@ export class ResponseParser {
             return null;
         }
         const images = [];
+        const thumbnails = [];
         // Iterate through gallery items and extract image URLs
         for (const item of post.gallery_data.items) {
             const mediaId = item.media_id;
             const mediaInfo = post.media_metadata[mediaId];
-            // Extract the image URL from the media metadata
+            // Extract the full-size image URL from the media metadata
             if (mediaInfo?.s?.u) {
                 // Decode HTML entities in the URL (Reddit encodes & as &amp;)
                 const imageURL = mediaInfo.s.u.replace(/&amp;/g, '&');
                 images.push(imageURL);
+                // Extract thumbnail from preview resolutions (last = largest thumbnail)
+                let thumbnailURL = imageURL; // fallback to full-size
+                if (mediaInfo.p && mediaInfo.p.length > 0) {
+                    const largest = mediaInfo.p[mediaInfo.p.length - 1];
+                    if (largest.u) {
+                        thumbnailURL = largest.u.replace(/&amp;/g, '&');
+                    }
+                }
+                thumbnails.push(thumbnailURL);
             }
         }
         // Only return gallery data if we found at least one image
         if (images.length > 0) {
-            return { images };
+            return { images, thumbnails };
         }
         return null;
     }
@@ -620,6 +675,8 @@ export class StateManager {
             columnCount: 5,
             showVideos: true,
             expandGalleries: false, // Default to carousel mode
+            darkMode: false,
+            masonryLayout: false,
             mediaPosts: [],
             isLoading: false,
             error: null
@@ -636,6 +693,12 @@ export class StateManager {
             this.state.columnCount = preferences.columnCount;
             this.state.showVideos = preferences.showVideos;
             this.state.expandGalleries = preferences.expandGalleries;
+            if (preferences.darkMode !== undefined) {
+                this.state.darkMode = preferences.darkMode;
+            }
+            if (preferences.masonryLayout !== undefined) {
+                this.state.masonryLayout = preferences.masonryLayout;
+            }
             console.log('Loaded preferences from session storage:', preferences);
         }
     }
@@ -646,7 +709,9 @@ export class StateManager {
         const preferences = {
             columnCount: this.state.columnCount,
             showVideos: this.state.showVideos,
-            expandGalleries: this.state.expandGalleries
+            expandGalleries: this.state.expandGalleries,
+            darkMode: this.state.darkMode,
+            masonryLayout: this.state.masonryLayout
         };
         savePreferences(preferences);
     }
@@ -767,6 +832,16 @@ export class StateManager {
         this.savePreferencesToSession();
         this.notifyStateChange();
     }
+    setDarkMode(dark) {
+        this.state.darkMode = dark;
+        document.body.classList.toggle('dark-mode', dark);
+        this.savePreferencesToSession();
+    }
+    setMasonryLayout(masonry) {
+        this.state.masonryLayout = masonry;
+        this.savePreferencesToSession();
+        this.notifyStateChange();
+    }
     /**
      * Load content from the current content source
      * Orchestrates API fetch and response parsing
@@ -820,19 +895,23 @@ export class StateManager {
             // Check if we have no media posts
             // Requirements: 6.1, 6.2
             if (this.state.mediaPosts.length === 0) {
+                const isSubreddit = this.state.contentSource.type === 'subreddit';
+                const sourceName = isSubreddit
+                    ? `r/${this.state.contentSource.name}`
+                    : `u/${this.state.contentSource.username}`;
                 // Distinguish between no posts at all vs posts with no media
                 if (result.posts.length === 0) {
-                    // No posts found at all
-                    const sourceType = this.state.contentSource.type === 'subreddit' ? 'subreddit' : 'profile';
-                    this.state.error = `This ${sourceType} has no posts yet`;
+                    // No posts found at all - could be banned, deleted, or just empty
+                    this.state.error = isSubreddit
+                        ? `No posts found in '${sourceName}'. The subreddit may be banned, empty, or doesn't exist.`
+                        : `No posts found for '${sourceName}'. The user may have been deleted, suspended, or has no submissions.`;
                     if (this.errorDisplay) {
                         this.errorDisplay.show(this.state.error, false);
                     }
                 }
                 else {
                     // Posts exist but no media content
-                    const sourceType = this.state.contentSource.type === 'subreddit' ? 'subreddit' : 'profile';
-                    this.state.error = `No images or videos found in this ${sourceType}`;
+                    this.state.error = `No images or videos found in '${sourceName}'. The ${isSubreddit ? 'subreddit' : 'user'} may only have text posts.`;
                     if (this.errorDisplay) {
                         this.errorDisplay.show(this.state.error, false);
                     }
@@ -855,10 +934,19 @@ export class StateManager {
                 if (errorMessage.includes('HTTP 404')) {
                     // Content source not found
                     if (this.state.contentSource.type === 'subreddit') {
-                        this.state.error = `Subreddit 'r/${this.state.contentSource.name}' not found. Please check the spelling and try again.`;
+                        this.state.error = `Subreddit 'r/${this.state.contentSource.name}' not found. It may have been banned or never existed.`;
                     }
                     else {
-                        this.state.error = `User 'u/${this.state.contentSource.username}' not found. Please check the spelling and try again.`;
+                        this.state.error = `User 'u/${this.state.contentSource.username}' not found. The account may have been deleted or suspended.`;
+                    }
+                }
+                else if (errorMessage.includes('HTTP 403')) {
+                    // Forbidden - private or quarantined
+                    if (this.state.contentSource.type === 'subreddit') {
+                        this.state.error = `Subreddit 'r/${this.state.contentSource.name}' is private or quarantined.`;
+                    }
+                    else {
+                        this.state.error = `User 'u/${this.state.contentSource.username}' has a private profile.`;
                     }
                 }
                 else if (errorMessage.includes('HTTP 429')) {
@@ -1424,7 +1512,7 @@ export class SearchInterface {
         this.inputElement = document.createElement('input');
         this.inputElement.type = 'text';
         this.inputElement.className = 'search-input';
-        this.inputElement.placeholder = 'Enter subreddit name or username';
+        this.inputElement.placeholder = 'e.g. pics or pics+art+earthporn';
         inputGroup.appendChild(this.inputElement);
         // Append typeahead dropdown to input group
         inputGroup.appendChild(this.typeaheadDropdown.getElement());
@@ -1902,7 +1990,7 @@ export class VideoToggle {
         // Set default value to match state manager default (true - show videos)
         this.toggleCheckbox.checked = this.stateManager.getState().showVideos;
         toggleLabel.appendChild(this.toggleCheckbox);
-        toggleLabel.appendChild(document.createTextNode(' Show Videos'));
+        toggleLabel.appendChild(document.createTextNode(' Show Videos/GIFs'));
         toggleGroup.appendChild(toggleLabel);
         this.container.appendChild(toggleGroup);
         // Add event listener for toggle changes
@@ -2015,6 +2103,63 @@ export class GalleryExpandToggle {
     }
 }
 console.log('Gallery Expand Toggle loaded');
+// Dark Mode Toggle Implementation
+class DarkModeToggle {
+    constructor(stateManager) {
+        this.stateManager = stateManager;
+        this.container = document.createElement('div');
+        this.container.className = 'dark-mode-toggle';
+        const toggleGroup = document.createElement('div');
+        toggleGroup.className = 'toggle-group';
+        const toggleLabel = document.createElement('label');
+        toggleLabel.className = 'toggle-label';
+        this.toggleCheckbox = document.createElement('input');
+        this.toggleCheckbox.type = 'checkbox';
+        this.toggleCheckbox.id = 'dark-mode-checkbox';
+        this.toggleCheckbox.checked = this.stateManager.getState().darkMode;
+        toggleLabel.appendChild(this.toggleCheckbox);
+        toggleLabel.appendChild(document.createTextNode(' Dark Mode'));
+        toggleGroup.appendChild(toggleLabel);
+        this.container.appendChild(toggleGroup);
+        this.toggleCheckbox.addEventListener('change', () => {
+            this.stateManager.setDarkMode(this.toggleCheckbox.checked);
+        });
+    }
+    render() {
+        return this.container;
+    }
+    updateFromState() {
+        this.toggleCheckbox.checked = this.stateManager.getState().darkMode;
+    }
+}
+class LayoutToggle {
+    constructor(stateManager) {
+        this.stateManager = stateManager;
+        this.container = document.createElement('div');
+        this.container.className = 'layout-toggle';
+        const toggleGroup = document.createElement('div');
+        toggleGroup.className = 'toggle-group';
+        const toggleLabel = document.createElement('label');
+        toggleLabel.className = 'toggle-label';
+        this.toggleCheckbox = document.createElement('input');
+        this.toggleCheckbox.type = 'checkbox';
+        this.toggleCheckbox.id = 'masonry-layout-checkbox';
+        this.toggleCheckbox.checked = this.stateManager.getState().masonryLayout;
+        toggleLabel.appendChild(this.toggleCheckbox);
+        toggleLabel.appendChild(document.createTextNode(' Masonry'));
+        toggleGroup.appendChild(toggleLabel);
+        this.container.appendChild(toggleGroup);
+        this.toggleCheckbox.addEventListener('change', () => {
+            this.stateManager.setMasonryLayout(this.toggleCheckbox.checked);
+        });
+    }
+    render() {
+        return this.container;
+    }
+    updateFromState() {
+        this.toggleCheckbox.checked = this.stateManager.getState().masonryLayout;
+    }
+}
 // Metadata Display Implementation
 /**
  * MetadataDisplay Component
@@ -2152,7 +2297,16 @@ export class GalleryCarousel {
         this.currentImage.addEventListener('error', () => {
             this.handleImageLoadError();
         });
+        // Hide loading spinner when image loads
+        this.currentImage.addEventListener('load', () => {
+            this.hideLoadingSpinner();
+        });
         this.imageContainer.appendChild(this.currentImage);
+        // Create loading spinner
+        this.loadingSpinner = document.createElement('div');
+        this.loadingSpinner.className = 'carousel-loading';
+        this.loadingSpinner.style.display = 'none';
+        this.imageContainer.appendChild(this.loadingSpinner);
         this.container.appendChild(this.imageContainer);
         // Create navigation controls container
         const controlsContainer = document.createElement('div');
@@ -2226,9 +2380,11 @@ export class GalleryCarousel {
      * Requirements: 12.1, 12.5, 12.6, 12.7, 14.1
      */
     updateDisplay() {
-        // Update image source
-        const imageURL = this.galleryData.images[this.currentIndex];
-        this.currentImage.src = imageURL;
+        // Show loading spinner
+        this.showLoadingSpinner();
+        // Use thumbnail for display, full-size for click
+        const thumbnailURL = this.galleryData.thumbnails[this.currentIndex];
+        this.currentImage.src = thumbnailURL;
         // Reset error state
         this.currentImage.style.display = 'block';
         // Update position indicator (e.g., "2 of 5")
@@ -2255,6 +2411,12 @@ export class GalleryCarousel {
             this.nextButton.style.visibility = 'visible';
         }
     }
+    showLoadingSpinner() {
+        this.loadingSpinner.style.display = 'flex';
+    }
+    hideLoadingSpinner() {
+        this.loadingSpinner.style.display = 'none';
+    }
     /**
      * Preload the next image for smooth navigation
      * Requirements: 14.2
@@ -2262,10 +2424,10 @@ export class GalleryCarousel {
     preloadNextImage() {
         // Only preload if there is a next image
         if (this.currentIndex < this.galleryData.images.length - 1) {
-            const nextImageURL = this.galleryData.images[this.currentIndex + 1];
+            const nextThumbnailURL = this.galleryData.thumbnails[this.currentIndex + 1];
             // Create a new Image object to preload
             const preloadImage = new Image();
-            preloadImage.src = nextImageURL;
+            preloadImage.src = nextThumbnailURL;
             // No need to do anything with the loaded image - browser will cache it
         }
     }
@@ -2274,7 +2436,8 @@ export class GalleryCarousel {
      * Requirements: 14.4, 14.5
      */
     handleImageLoadError() {
-        // Hide the broken image
+        // Hide loading spinner and the broken image
+        this.hideLoadingSpinner();
         this.currentImage.style.display = 'none';
         // Create or update error placeholder
         let errorPlaceholder = this.imageContainer.querySelector('.image-error-placeholder');
@@ -2323,12 +2486,16 @@ export class VideoPlayer {
         // Requirements: 10.1 - Render HTML video element with video URL
         this.videoElement = document.createElement('video');
         this.videoElement.className = 'video-element';
-        this.videoElement.src = videoData.url;
+        // Lazy loading: don't set src until visible
+        // Set poster image for preview while not loaded
+        if (videoData.posterUrl) {
+            this.videoElement.poster = videoData.posterUrl;
+        }
         // Add standard video controls (play, pause, volume)
         // Requirements: 10.2 - Provide standard video controls
         this.videoElement.controls = true;
         // Set additional video attributes
-        this.videoElement.preload = 'metadata';
+        this.videoElement.preload = 'none';
         // Prevent click from opening new tab
         // Requirements: 18.6 - Videos should not open in new tab
         this.videoElement.style.cursor = 'default';
@@ -2343,6 +2510,18 @@ export class VideoPlayer {
         });
         videoContainer.appendChild(this.videoElement);
         this.container.appendChild(videoContainer);
+        // Use IntersectionObserver to lazy-load video src when scrolled into view
+        const observer = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.isIntersecting) {
+                    this.videoElement.src = videoData.url;
+                    this.videoElement.preload = 'metadata';
+                    observer.disconnect();
+                    break;
+                }
+            }
+        }, { rootMargin: '200px' }); // Start loading 200px before visible
+        observer.observe(this.container);
     }
     /**
      * Get the rendered HTML element
@@ -2492,11 +2671,17 @@ export class MediaGallery {
             // Append mode: only render new items
             // Requirements: 20.3
             const newPosts = posts.slice(this.previousPostCount);
-            // Filter video posts based on showVideos toggle
+            // Filter video/GIF posts based on showVideos toggle
             // Requirements: 11.2, 11.3, 20.13
             const filteredNewPosts = config.showVideos
                 ? newPosts
-                : newPosts.filter(post => post.type !== 'video' && post.type !== 'external-embed');
+                : newPosts.filter(post => {
+                    if (post.type === 'video' || post.type === 'external-embed')
+                        return false;
+                    if (post.type === 'image' && (post.gifVideoUrl || post.url.toLowerCase().includes('.gif')))
+                        return false;
+                    return true;
+                });
             // Render each new media item and append to container
             filteredNewPosts.forEach(post => {
                 const mediaItem = this.createMediaItem(post, config);
@@ -2508,6 +2693,10 @@ export class MediaGallery {
                     this.container.appendChild(mediaItem);
                 }
             });
+            // Re-apply masonry layout if enabled (needs to reflow with new items)
+            if (config.masonryLayout) {
+                this.applyMasonryLayout(config.columnCount);
+            }
         }
         else {
             // Replace mode: clear and render all items
@@ -2532,14 +2721,26 @@ export class MediaGallery {
                 }
             }
             this.clear();
-            // Apply column count class to container
-            // Requirements: 15.1, 15.5
-            this.container.className = `media-gallery columns-${config.columnCount}`;
-            // Filter video posts based on showVideos toggle
+            // Apply layout class to container
+            if (config.masonryLayout) {
+                this.container.className = `media-gallery masonry-layout columns-${config.columnCount}`;
+            }
+            else {
+                this.container.className = `media-gallery columns-${config.columnCount}`;
+                this.container.style.position = '';
+                this.container.style.height = '';
+            }
+            // Filter video/GIF posts based on showVideos toggle
             // Requirements: 11.2, 11.3
             const filteredPosts = config.showVideos
                 ? posts
-                : posts.filter(post => post.type !== 'video' && post.type !== 'external-embed');
+                : posts.filter(post => {
+                    if (post.type === 'video' || post.type === 'external-embed')
+                        return false;
+                    if (post.type === 'image' && (post.gifVideoUrl || post.url.toLowerCase().includes('.gif')))
+                        return false;
+                    return true;
+                });
             // Render each media item
             filteredPosts.forEach(post => {
                 const mediaItem = this.createMediaItem(post, config);
@@ -2548,6 +2749,10 @@ export class MediaGallery {
             // Add loading indicator at the bottom if it exists
             if (this.loadingIndicatorElement) {
                 this.container.appendChild(this.loadingIndicatorElement);
+            }
+            // Apply masonry layout if enabled
+            if (config.masonryLayout) {
+                this.applyMasonryLayout(config.columnCount);
             }
             // Scroll to anchor item after rendering
             if (anchorIndex >= 0) {
@@ -2567,6 +2772,65 @@ export class MediaGallery {
         }
         // Update previous post count
         this.previousPostCount = posts.length;
+    }
+    /**
+     * Apply JS-based masonry layout by positioning items into shortest columns
+     */
+    applyMasonryLayout(columnCount) {
+        const items = this.container.querySelectorAll('.media-item');
+        if (items.length === 0)
+            return;
+        const gap = 5;
+        const containerWidth = this.container.clientWidth;
+        const colWidth = (containerWidth - gap * (columnCount - 1)) / columnCount;
+        const colHeights = new Array(columnCount).fill(0);
+        this.container.style.position = 'relative';
+        items.forEach(item => {
+            // Find shortest column
+            const minHeight = Math.min(...colHeights);
+            const colIndex = colHeights.indexOf(minHeight);
+            item.style.position = 'absolute';
+            item.style.width = `${colWidth}px`;
+            item.style.left = `${colIndex * (colWidth + gap)}px`;
+            item.style.top = `${colHeights[colIndex]}px`;
+            colHeights[colIndex] += item.offsetHeight + gap;
+        });
+        // Set container height to tallest column
+        this.container.style.height = `${Math.max(...colHeights)}px`;
+        // Re-layout when images load (they change item heights)
+        const images = this.container.querySelectorAll('img, video');
+        let pending = 0;
+        const reflow = () => {
+            pending--;
+            if (pending <= 0) {
+                // Debounce: only reflow once after all images in a batch load
+                requestAnimationFrame(() => this.reflowMasonry(columnCount));
+            }
+        };
+        images.forEach(img => {
+            if (!img.complete) {
+                pending++;
+                img.addEventListener('load', reflow, { once: true });
+                img.addEventListener('error', reflow, { once: true });
+            }
+        });
+    }
+    reflowMasonry(columnCount) {
+        const items = this.container.querySelectorAll('.media-item');
+        if (items.length === 0)
+            return;
+        const gap = 5;
+        const containerWidth = this.container.clientWidth;
+        const colWidth = (containerWidth - gap * (columnCount - 1)) / columnCount;
+        const colHeights = new Array(columnCount).fill(0);
+        items.forEach(item => {
+            const minHeight = Math.min(...colHeights);
+            const colIndex = colHeights.indexOf(minHeight);
+            item.style.left = `${colIndex * (colWidth + gap)}px`;
+            item.style.top = `${colHeights[colIndex]}px`;
+            colHeights[colIndex] += item.offsetHeight + gap;
+        });
+        this.container.style.height = `${Math.max(...colHeights)}px`;
     }
     /**
      * Create a media item element for a post
@@ -2656,27 +2920,90 @@ export class MediaGallery {
             imageContainer.appendChild(image);
         }
         else if (isGif) {
-            // GIFs cannot be embedded due to Reddit CORS policy
-            // Show static preview with GIF badge
-            const image = document.createElement('img');
-            image.className = 'media-image';
-            image.alt = post.metadata.title || 'Reddit GIF';
-            image.style.cursor = 'pointer';
-            image.loading = 'lazy';
-            // Add GIF badge
-            const gifBadge = document.createElement('div');
-            gifBadge.className = 'gif-badge';
-            gifBadge.textContent = 'GIF';
-            imageContainer.appendChild(gifBadge);
-            // Click to open Reddit post where GIF will play
-            image.addEventListener('click', () => {
-                window.open(post.metadata.postURL, '_blank', 'noopener,noreferrer');
-            });
-            image.addEventListener('error', () => {
-                this.handleImageLoadError(imageContainer, image);
-            });
-            image.src = post.thumbnailUrl || post.url;
-            imageContainer.appendChild(image);
+            // Check if we have an MP4 variant URL for direct playback
+            if (post.gifVideoUrl) {
+                // GIF with MP4 variant - use video element with click-to-play
+                const video = document.createElement('video');
+                video.className = 'media-image';
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.preload = 'none';
+                video.poster = post.thumbnailUrl || post.url;
+                video.style.cursor = 'pointer';
+                video.src = post.gifVideoUrl;
+                // Add GIF badge
+                const gifBadge = document.createElement('div');
+                gifBadge.className = 'gif-badge';
+                gifBadge.textContent = 'GIF';
+                imageContainer.appendChild(gifBadge);
+                // Add play overlay
+                const playOverlay = document.createElement('div');
+                playOverlay.className = 'gif-play-overlay';
+                playOverlay.innerHTML = '▶';
+                imageContainer.appendChild(playOverlay);
+                // Click to play/pause
+                let isPlaying = false;
+                const togglePlay = () => {
+                    if (isPlaying) {
+                        video.pause();
+                        playOverlay.style.display = '';
+                        gifBadge.style.display = '';
+                        isPlaying = false;
+                    }
+                    else {
+                        video.play().then(() => {
+                            playOverlay.style.display = 'none';
+                            gifBadge.style.display = 'none';
+                            isPlaying = true;
+                        }).catch(() => {
+                            // If playback fails, fall back to opening Reddit post
+                            window.open(post.metadata.postURL, '_blank', 'noopener,noreferrer');
+                        });
+                    }
+                };
+                video.addEventListener('click', togglePlay);
+                playOverlay.style.cursor = 'pointer';
+                playOverlay.style.pointerEvents = 'auto';
+                playOverlay.addEventListener('click', togglePlay);
+                video.addEventListener('error', () => {
+                    // Fallback: if video fails, show static image with link
+                    console.warn('GIF MP4 variant failed to load, falling back to static preview');
+                    const fallbackImg = document.createElement('img');
+                    fallbackImg.className = 'media-image';
+                    fallbackImg.alt = post.metadata.title || 'Reddit GIF';
+                    fallbackImg.style.cursor = 'pointer';
+                    fallbackImg.src = post.thumbnailUrl || post.url;
+                    fallbackImg.addEventListener('click', () => {
+                        window.open(post.metadata.postURL, '_blank', 'noopener,noreferrer');
+                    });
+                    video.replaceWith(fallbackImg);
+                    playOverlay.style.display = 'none';
+                });
+                imageContainer.appendChild(video);
+            }
+            else {
+                // No MP4 variant - show static preview with GIF badge (CORS blocked)
+                const image = document.createElement('img');
+                image.className = 'media-image';
+                image.alt = post.metadata.title || 'Reddit GIF';
+                image.style.cursor = 'pointer';
+                image.loading = 'lazy';
+                // Add GIF badge
+                const gifBadge = document.createElement('div');
+                gifBadge.className = 'gif-badge';
+                gifBadge.textContent = 'GIF';
+                imageContainer.appendChild(gifBadge);
+                // Click to open Reddit post where GIF will play
+                image.addEventListener('click', () => {
+                    window.open(post.metadata.postURL, '_blank', 'noopener,noreferrer');
+                });
+                image.addEventListener('error', () => {
+                    this.handleImageLoadError(imageContainer, image);
+                });
+                image.src = post.thumbnailUrl || post.url;
+                imageContainer.appendChild(image);
+            }
         }
         else {
             // Regular image
@@ -2949,6 +3276,22 @@ export function initializeApplication() {
     else {
         console.error('Gallery toggle container not found in DOM');
     }
+    // Step 9a: Create DarkModeToggle component
+    const darkModeToggle = new DarkModeToggle(stateManager);
+    const darkModeContainer = document.getElementById('dark-mode-toggle-container');
+    if (darkModeContainer) {
+        darkModeContainer.appendChild(darkModeToggle.render());
+    }
+    // Apply dark mode from saved preference on load
+    if (stateManager.getState().darkMode) {
+        document.body.classList.add('dark-mode');
+    }
+    // Step 9b: Create LayoutToggle component
+    const layoutToggle = new LayoutToggle(stateManager);
+    const layoutToggleContainer = document.getElementById('layout-toggle-container');
+    if (layoutToggleContainer) {
+        layoutToggleContainer.appendChild(layoutToggle.render());
+    }
     // Step 9a: Create LoadingIndicator and InfiniteScrollManager for infinite scroll
     // Requirements: 20.1, 20.4
     const loadingIndicator = new LoadingIndicator();
@@ -2969,11 +3312,14 @@ export function initializeApplication() {
         columnSelector.updateFromState();
         videoToggle.updateFromState();
         galleryExpandToggle.updateFromState();
+        darkModeToggle.updateFromState();
+        layoutToggle.updateFromState();
         // Update media gallery with current posts and configuration
         const config = {
             columnCount: state.columnCount,
             showVideos: state.showVideos,
-            expandGalleries: state.expandGalleries
+            expandGalleries: state.expandGalleries,
+            masonryLayout: state.masonryLayout
         };
         mediaGallery.render(state.mediaPosts, config);
         // Show/hide loading indicator
@@ -3053,6 +3399,45 @@ export function initializeApplication() {
     };
     window.addEventListener('scroll', onScroll);
     console.log('Sticky header scroll behavior initialized');
+    // Step 14: Set up keyboard navigation for gallery carousels
+    document.addEventListener('keydown', (event) => {
+        // Don't intercept when typing in inputs
+        const target = event.target;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+            return;
+        }
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            // Find the gallery carousel closest to viewport center
+            const carousels = document.querySelectorAll('.gallery-carousel');
+            if (carousels.length === 0)
+                return;
+            const viewportMiddle = window.innerHeight / 2;
+            let closestCarousel = null;
+            let closestDistance = Infinity;
+            carousels.forEach(carousel => {
+                const rect = carousel.getBoundingClientRect();
+                // Only consider carousels that are at least partially visible
+                if (rect.bottom > 0 && rect.top < window.innerHeight) {
+                    const carouselMiddle = rect.top + rect.height / 2;
+                    const distance = Math.abs(carouselMiddle - viewportMiddle);
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestCarousel = carousel;
+                    }
+                }
+            });
+            if (closestCarousel) {
+                const button = event.key === 'ArrowLeft'
+                    ? closestCarousel.querySelector('.carousel-prev')
+                    : closestCarousel.querySelector('.carousel-next');
+                if (button && !button.disabled) {
+                    button.click();
+                    event.preventDefault();
+                }
+            }
+        }
+    });
+    console.log('Keyboard navigation initialized');
 }
 // Auto-initialize when DOM is ready
 if (typeof document !== 'undefined') {
