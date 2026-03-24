@@ -1973,27 +1973,24 @@ export class VideoToggle {
      */
     constructor(stateManager) {
         this.stateManager = stateManager;
-        // Create container element
         this.container = document.createElement('div');
         this.container.className = 'video-toggle';
-        // Create toggle group
-        const toggleGroup = document.createElement('div');
-        toggleGroup.className = 'toggle-group';
-        // Create label with checkbox
         const toggleLabel = document.createElement('label');
         toggleLabel.className = 'toggle-label';
-        // Create checkbox input
         this.toggleCheckbox = document.createElement('input');
         this.toggleCheckbox.type = 'checkbox';
         this.toggleCheckbox.id = 'video-toggle-checkbox';
-        this.toggleCheckbox.className = 'video-toggle-checkbox';
-        // Set default value to match state manager default (true - show videos)
+        this.toggleCheckbox.className = 'toggle-checkbox-hidden';
         this.toggleCheckbox.checked = this.stateManager.getState().showVideos;
+        const slider = document.createElement('span');
+        slider.className = 'toggle-switch';
+        const labelText = document.createElement('span');
+        labelText.className = 'toggle-text';
+        labelText.textContent = 'Videos/GIFs';
         toggleLabel.appendChild(this.toggleCheckbox);
-        toggleLabel.appendChild(document.createTextNode(' Show Videos/GIFs'));
-        toggleGroup.appendChild(toggleLabel);
-        this.container.appendChild(toggleGroup);
-        // Add event listener for toggle changes
+        toggleLabel.appendChild(slider);
+        toggleLabel.appendChild(labelText);
+        this.container.appendChild(toggleLabel);
         this.toggleCheckbox.addEventListener('change', () => {
             this.handleToggleChange();
         });
@@ -2044,27 +2041,24 @@ export class GalleryExpandToggle {
      */
     constructor(stateManager) {
         this.stateManager = stateManager;
-        // Create container element
         this.container = document.createElement('div');
         this.container.className = 'gallery-expand-toggle';
-        // Create toggle group
-        const toggleGroup = document.createElement('div');
-        toggleGroup.className = 'toggle-group';
-        // Create label with checkbox
         const toggleLabel = document.createElement('label');
         toggleLabel.className = 'toggle-label';
-        // Create checkbox input
         this.toggleCheckbox = document.createElement('input');
         this.toggleCheckbox.type = 'checkbox';
         this.toggleCheckbox.id = 'gallery-expand-toggle-checkbox';
-        this.toggleCheckbox.className = 'gallery-expand-toggle-checkbox';
-        // Set default value to match state manager default (false - carousel mode)
+        this.toggleCheckbox.className = 'toggle-checkbox-hidden';
         this.toggleCheckbox.checked = this.stateManager.getState().expandGalleries;
+        const slider = document.createElement('span');
+        slider.className = 'toggle-switch';
+        const labelText = document.createElement('span');
+        labelText.className = 'toggle-text';
+        labelText.textContent = 'Expand';
         toggleLabel.appendChild(this.toggleCheckbox);
-        toggleLabel.appendChild(document.createTextNode(' Expand Galleries'));
-        toggleGroup.appendChild(toggleLabel);
-        this.container.appendChild(toggleGroup);
-        // Add event listener for toggle changes
+        toggleLabel.appendChild(slider);
+        toggleLabel.appendChild(labelText);
+        this.container.appendChild(toggleLabel);
         this.toggleCheckbox.addEventListener('change', () => {
             this.handleToggleChange();
         });
@@ -2109,18 +2103,22 @@ class DarkModeToggle {
         this.stateManager = stateManager;
         this.container = document.createElement('div');
         this.container.className = 'dark-mode-toggle';
-        const toggleGroup = document.createElement('div');
-        toggleGroup.className = 'toggle-group';
         const toggleLabel = document.createElement('label');
         toggleLabel.className = 'toggle-label';
         this.toggleCheckbox = document.createElement('input');
         this.toggleCheckbox.type = 'checkbox';
         this.toggleCheckbox.id = 'dark-mode-checkbox';
+        this.toggleCheckbox.className = 'toggle-checkbox-hidden';
         this.toggleCheckbox.checked = this.stateManager.getState().darkMode;
+        const slider = document.createElement('span');
+        slider.className = 'toggle-switch';
+        const labelText = document.createElement('span');
+        labelText.className = 'toggle-text';
+        labelText.textContent = 'Dark';
         toggleLabel.appendChild(this.toggleCheckbox);
-        toggleLabel.appendChild(document.createTextNode(' Dark Mode'));
-        toggleGroup.appendChild(toggleLabel);
-        this.container.appendChild(toggleGroup);
+        toggleLabel.appendChild(slider);
+        toggleLabel.appendChild(labelText);
+        this.container.appendChild(toggleLabel);
         this.toggleCheckbox.addEventListener('change', () => {
             this.stateManager.setDarkMode(this.toggleCheckbox.checked);
         });
@@ -2137,18 +2135,22 @@ class LayoutToggle {
         this.stateManager = stateManager;
         this.container = document.createElement('div');
         this.container.className = 'layout-toggle';
-        const toggleGroup = document.createElement('div');
-        toggleGroup.className = 'toggle-group';
         const toggleLabel = document.createElement('label');
         toggleLabel.className = 'toggle-label';
         this.toggleCheckbox = document.createElement('input');
         this.toggleCheckbox.type = 'checkbox';
         this.toggleCheckbox.id = 'masonry-layout-checkbox';
+        this.toggleCheckbox.className = 'toggle-checkbox-hidden';
         this.toggleCheckbox.checked = this.stateManager.getState().masonryLayout;
+        const slider = document.createElement('span');
+        slider.className = 'toggle-switch';
+        const labelText = document.createElement('span');
+        labelText.className = 'toggle-text';
+        labelText.textContent = 'Masonry';
         toggleLabel.appendChild(this.toggleCheckbox);
-        toggleLabel.appendChild(document.createTextNode(' Masonry'));
-        toggleGroup.appendChild(toggleLabel);
-        this.container.appendChild(toggleGroup);
+        toggleLabel.appendChild(slider);
+        toggleLabel.appendChild(labelText);
+        this.container.appendChild(toggleLabel);
         this.toggleCheckbox.addEventListener('change', () => {
             this.stateManager.setMasonryLayout(this.toggleCheckbox.checked);
         });
