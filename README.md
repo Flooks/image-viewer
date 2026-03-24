@@ -1,17 +1,29 @@
 # Reddit Image Viewer
 
-A locally-hosted web application for browsing images and videos from Reddit subreddits and user profiles.
+A locally-hosted web application for browsing images, GIFs, and videos from Reddit subreddits and user profiles.
 
 ## Features
 
-- Browse images and videos from any subreddit or user profile
+- Browse images, GIFs, and videos from any subreddit or user profile
+- Multi-subreddit support (e.g. `pics+art+earthporn`)
+- GIF playback using Reddit's MP4 variants with click-to-play
+- External video embedding (Redgifs) with click-to-play previews
+- Gallery carousel with thumbnail previews and loading indicators
 - Multiple sort options (Hot, New, Top, Best, Rising, Controversial)
 - Timespan filtering for Top and Controversial posts
 - Configurable grid layout (1-6 columns)
-- Gallery carousel for multi-image posts
-- Video playback support
+- Masonry layout option (Pinterest-style)
+- Dark mode with persistent preference
+- Keyboard navigation (arrow keys for gallery carousels)
+- Lazy video loading (videos only load when scrolled into view)
+- Infinite scroll with aggressive pre-loading
+- Sticky header (shows on scroll up)
+- Toggle to show/hide videos and GIFs
+- Toggle to expand galleries inline
+- Scroll position preservation when toggling options
 - Client-side routing with bookmarkable URLs
-- Session persistence for user preferences
+- Session persistence for all user preferences
+- Helpful error messages for missing/banned/private content
 
 ## Setup
 
@@ -20,7 +32,7 @@ A locally-hosted web application for browsing images and videos from Reddit subr
    npm install
    ```
 
-2. Compile TypeScript (optional, for development):
+2. Compile TypeScript:
    ```bash
    npm run build
    ```
@@ -30,51 +42,40 @@ A locally-hosted web application for browsing images and videos from Reddit subr
    **On Windows:**
    - Double-click `start-server.bat` for a visible console window
    - Or double-click `start-server-hidden.vbs` to run in background
-   
+
    **On Ubuntu/Linux:**
    ```bash
-   # Make scripts executable (first time only)
    chmod +x start-server.sh restart-server.sh stop-server.sh
-   
-   # Start server (foreground)
-   ./start-server.sh
-   
-   # Or start in background
-   ./restart-server.sh
-   
-   # Stop server
-   ./stop-server.sh
+   ./start-server.sh          # foreground
+   ./restart-server.sh        # background
+   ./stop-server.sh           # stop
    ```
 
-4. Open your browser to `http://localhost:8000`
+4. Open `http://localhost:8000`
 
 ## Usage
 
-- Enter a subreddit name (e.g., "pics") or username (e.g., "spez")
-- Select between subreddit or user profile mode
-- Choose sort order and timespan
-- Adjust grid columns to your preference
-- Toggle video visibility and gallery expand mode
+- Enter a subreddit name (e.g. `pics`) or combine multiple with `+` (e.g. `pics+art`)
+- Switch between subreddit and user profile mode
+- Use sort order and timespan dropdowns to filter content
+- Adjust column count and toggle masonry layout
+- Use left/right arrow keys to navigate gallery carousels
+- Toggle dark mode, video/GIF visibility, and gallery expansion
 
 ## URL Patterns
 
-- Subreddit: `/r/<subreddit-name>`
-- User profile: `/u/<username>`
+- Subreddit: `#/r/<name>` (e.g. `#/r/pics+art`)
+- User profile: `#/u/<username>`
 
 ## Project Structure
 
-- `index.html` - Main HTML structure
-- `app.ts` - TypeScript source with type definitions
-- `app.js` - Compiled JavaScript (generated)
-- `styles.css` - Application styling
-- `package.json` - Project configuration
-- `tsconfig.json` - TypeScript configuration
+- `index.html` — Main HTML
+- `app.ts` — TypeScript source
+- `app.js` — Compiled JavaScript
+- `styles.css` — Styling
+- `start-server.sh / .bat` — Server scripts
 
 ## Requirements
 
-- Modern web browser with ES2020 support
-- Internet connection to access Reddit API
-
-## License
-
-MIT
+- Modern browser with ES2020 support
+- Internet connection for Reddit API access
