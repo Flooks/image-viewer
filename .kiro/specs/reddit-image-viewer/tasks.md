@@ -636,6 +636,23 @@ This implementation plan breaks down the Reddit Image Viewer feature into discre
 - [ ] 30. Final checkpoint - Ensure infinite scroll works end-to-end
   - Ensure all tests pass, ask the user if questions arise.
 
+- [x] 31. Image placeholder aspect ratios (Performance)
+  - [x] 31.1 Add width/height to VideoData and dimensions to GalleryData interfaces
+  - [x] 31.2 Extract image dimensions from Reddit API preview/media_metadata
+  - [x] 31.3 Set CSS aspect-ratio on image, video, and carousel containers to prevent layout shift
+
+- [x] 32. Virtual scrolling (Performance)
+  - [x] 32.1 Create VirtualScrollManager class using IntersectionObserver with 2000px buffer
+  - [x] 32.2 Detach DOM children for off-screen items, replace with sized placeholder
+  - [x] 32.3 Reattach original nodes when scrolling back into view
+  - [x] 32.4 Pause videos before detaching, enable when >20 items loaded
+
+- [x] 33. Module splitting (Technical cleanup)
+  - [x] 33.1 Split monolithic app.ts into 10 focused ES2020 modules
+    - types.ts, router.ts, validation.ts, api.ts, scroll.ts, state.ts, search.ts, controls.ts, media.ts, app.ts
+  - [x] 33.2 Resolve circular dependencies via IMediaGallery/IErrorDisplay interfaces in state.ts
+  - [x] 33.3 Update index.html to use type="module" script loading
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP

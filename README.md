@@ -17,12 +17,15 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - Keyboard navigation (arrow keys for gallery carousels)
 - Lazy video loading (videos only load when scrolled into view)
 - Infinite scroll with aggressive pre-loading
+- Virtual scrolling (DOM recycling for large feeds)
+- Image placeholder aspect ratios (prevents layout shift during loading)
 - Sticky header (shows on scroll up)
 - Toggle to show/hide videos and GIFs
 - Toggle to expand galleries inline
 - Scroll position preservation when toggling options
 - Client-side routing with bookmarkable URLs
 - Session persistence for all user preferences
+- Typeahead search with subreddit/user suggestions
 - Helpful error messages for missing/banned/private content
 
 ## Setup
@@ -69,13 +72,22 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 
 ## Project Structure
 
-- `index.html` — Main HTML
-- `app.ts` — TypeScript source
-- `app.js` — Compiled JavaScript
-- `styles.css` — Styling
-- `start-server.sh / .bat` — Server scripts
+The application is split into focused ES2020 modules:
+
+- `index.html` — Main HTML entry point
+- `types.ts` — All interfaces and type aliases
+- `router.ts` — URLRouter class (hash-based navigation)
+- `validation.ts` — Input validation for subreddit names and usernames
+- `api.ts` — APIClient and ResponseParser (Reddit API communication)
+- `scroll.ts` — InfiniteScrollManager and VirtualScrollManager
+- `state.ts` — StateManager, LoadingIndicator, session storage utilities
+- `search.ts` — DebounceManager, SuggestionAPIClient, TypeaheadDropdown, SearchInterface
+- `controls.ts` — SortInterface, ColumnSelector, VideoToggle, GalleryExpandToggle, DarkModeToggle, LayoutToggle
+- `media.ts` — MetadataDisplay, GalleryCarousel, VideoPlayer, ExternalEmbedPlayer, MediaGallery, ErrorDisplay
+- `app.ts` — Bootstrap and initialization
+- `styles.css` — All styling
 
 ## Requirements
 
-- Modern browser with ES2020 support
+- Modern browser with ES2020 module support
 - Internet connection for Reddit API access
