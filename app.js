@@ -43,12 +43,12 @@ export class URLRouter {
         let title;
         if (source.type === 'subreddit') {
             path = `#/r/${source.name}`;
-            title = `r/${source.name} - Reddit Image Viewer`;
+            title = `r/${source.name}`;
         }
         else {
             // source.type === 'user'
             path = `#/u/${source.username}`;
-            title = `u/${source.username} - Reddit Image Viewer`;
+            title = `u/${source.username}`;
         }
         // Update the hash without triggering a page reload
         window.location.hash = path;
@@ -3364,10 +3364,10 @@ export function initializeApplication() {
         console.log('Loading initial content from URL:', initialSource);
         // Update title for initial load
         if (initialSource.type === 'subreddit') {
-            document.title = `r/${initialSource.name} - Reddit Image Viewer`;
+            document.title = `r/${initialSource.name}`;
         }
         else {
-            document.title = `u/${initialSource.username} - Reddit Image Viewer`;
+            document.title = `u/${initialSource.username}`;
         }
         stateManager.setContentSource(initialSource);
     }
