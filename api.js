@@ -175,12 +175,13 @@ export class RedgifsClient {
         this.corsProxy = 'https://corsproxy.io/?';
         this.token = null;
         this.tokenExpiry = 0;
+        this.userAgent = 'RedditImageViewer/1.0';
     }
     async getToken() {
         if (this.token && Date.now() < this.tokenExpiry)
             return this.token;
         const apiUrl = 'https://api.redgifs.com/v2/auth/temporary';
-        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}`;
+        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}&reqHeaders=${encodeURIComponent('user-agent:' + this.userAgent)}`;
         const response = await fetch(proxyUrl);
         if (!response.ok)
             throw new Error(`Redgifs auth failed: ${response.status}`);
@@ -192,7 +193,9 @@ export class RedgifsClient {
     async getVideoInfo(videoId) {
         const token = await this.getToken();
         const apiUrl = `https://api.redgifs.com/v2/gifs/${videoId.toLowerCase()}`;
-        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}&reqHeaders=${encodeURIComponent('authorization:Bearer ' + token)}`;
+        const authHeader = encodeURIComponent('authorization:Bearer ' + token);
+        const uaHeader = encodeURIComponent('user-agent:' + this.userAgent);
+        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}&reqHeaders=${authHeader}&reqHeaders=${uaHeader}`;
         const response = await fetch(proxyUrl);
         if (!response.ok)
             throw new Error(`Redgifs API failed: ${response.status}`);
