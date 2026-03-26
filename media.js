@@ -265,7 +265,9 @@ class ExternalEmbedPlayer {
             }
         }
         try {
+            console.log('[Redgifs] Fetching video info for:', this.videoId);
             const info = await redgifsClient.getVideoInfo(this.videoId);
+            console.log('[Redgifs] Got video info:', info);
             this.container.innerHTML = '';
             const videoContainer = document.createElement('div');
             videoContainer.className = 'video-container';
@@ -293,6 +295,7 @@ class ExternalEmbedPlayer {
             video.play().catch(() => { });
         }
         catch (error) {
+            console.error('[Redgifs] Failed to load native video, falling back to iframe:', error);
             // Fallback to iframe on API failure
             this.renderIframe();
         }
