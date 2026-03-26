@@ -1,5 +1,5 @@
 #!/bin/bash
-# Stop the Python HTTP server for Reddit Image Viewer
+# Stop the Node.js server for Reddit Image Viewer
 
 PORT=8000
 
