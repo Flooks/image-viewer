@@ -170,3 +170,43 @@ export class ResponseParser {
         return lowerURL.endsWith('.jpg') || lowerURL.endsWith('.jpeg') || lowerURL.endsWith('.png') || lowerURL.endsWith('.gif') || lowerURL.endsWith('.webp');
     }
 }
+export class RedgifsClient {
+    constructor() {
+        this.corsProxy = 'https://corsproxy.io/?';
+        this.token = null;
+        this.tokenExpiry = 0;
+    }
+    async getToken() {
+        if (this.token && Date.now() < this.tokenExpiry)
+            return this.token;
+        const url = this.corsProxy + encodeURIComponent('https://api.redgifs.com/v2/auth/temporary');
+        const response = await fetch(url);
+        if (!response.ok)
+            throw new Error(`Redgifs auth failed: ${response.status}`);
+        const data = await response.json();
+        this.token = data.token;
+        this.tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
+        return this.token;
+    }
+    async getVideoInfo(videoId) {
+        const token = await this.getToken();
+        const apiUrl = `https://api.redgifs.com/v2/gifs/${videoId.toLowerCase()}`;
+        const url = this.corsProxy + encodeURIComponent(apiUrl);
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok)
+            throw new Error(`Redgifs API failed: ${response.status}`);
+        const data = await response.json();
+        const gif = data.gif;
+        return {
+            hdUrl: gif.urls.hd,
+            sdUrl: gif.urls.sd,
+            posterUrl: gif.urls.poster,
+            width: gif.width,
+            height: gif.height,
+            hasAudio: gif.hasAudio,
+            duration: gif.duration
+        };
+    }
+}

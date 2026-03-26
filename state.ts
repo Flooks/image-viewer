@@ -77,7 +77,7 @@ const SESSION_STORAGE_KEY = 'reddit-image-viewer-preferences';
 
 export function savePreferences(preferences: SessionStorage): void {
   try {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(preferences));
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(preferences));
   } catch (error) {
     console.error('Failed to save preferences to session storage:', error);
   }
@@ -85,7 +85,7 @@ export function savePreferences(preferences: SessionStorage): void {
 
 export function loadPreferences(): SessionStorage | null {
   try {
-    const json = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const json = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!json) return null;
     const preferences = JSON.parse(json) as SessionStorage;
     if (typeof preferences.columnCount === 'number' && typeof preferences.showVideos === 'boolean' && typeof preferences.expandGalleries === 'boolean') {

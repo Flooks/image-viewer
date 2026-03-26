@@ -1,4 +1,5 @@
 import { VirtualScrollManager } from './scroll.js';
+import { RedgifsClient } from './api.js';
 export class MetadataDisplay {
     constructor(stateManager) { this.stateManager = stateManager; }
     render(metadata) {
@@ -211,15 +212,22 @@ export class VideoPlayer {
         this.container.appendChild(errorPlaceholder);
     }
 }
-export class ExternalEmbedPlayer {
+export // Shared Redgifs client instance (singleton, token cached)
+ const redgifsClient = new RedgifsClient();
+class ExternalEmbedPlayer {
     constructor(embedUrl, externalUrl, previewUrl, metadata) {
         this.embedUrl = embedUrl;
         this.externalUrl = externalUrl;
         this.previewUrl = previewUrl;
         this.metadata = metadata;
+        this.videoId = this.extractVideoId(externalUrl);
         this.container = document.createElement('div');
         this.container.className = 'external-embed-player';
         this.renderPreview();
+    }
+    extractVideoId(url) {
+        const match = url.match(/redgifs\.com\/watch\/([a-zA-Z0-9]+)/i);
+        return match ? match[1] : null;
     }
     renderPreview() {
         const previewContainer = document.createElement('div');
@@ -238,9 +246,56 @@ export class ExternalEmbedPlayer {
         playButton.style.cursor = 'pointer';
         previewContainer.appendChild(playButton);
         previewContainer.addEventListener('click', () => {
-            window.open(this.externalUrl, '_blank', 'noopener,noreferrer');
+            if (this.videoId) {
+                this.loadNativeVideo();
+            }
+            else {
+                this.renderIframe();
+            }
         });
         this.container.appendChild(previewContainer);
+    }
+    async loadNativeVideo() {
+        // Show loading state
+        const previewContainer = this.container.querySelector('.embed-preview-container');
+        if (previewContainer) {
+            const playBtn = previewContainer.querySelector('.embed-play-button');
+            if (playBtn) {
+                playBtn.innerHTML = '⏳';
+            }
+        }
+        try {
+            const info = await redgifsClient.getVideoInfo(this.videoId);
+            this.container.innerHTML = '';
+            const videoContainer = document.createElement('div');
+            videoContainer.className = 'video-container';
+            if (info.width && info.height) {
+                videoContainer.style.aspectRatio = `${info.width} / ${info.height}`;
+            }
+            const video = document.createElement('video');
+            video.className = 'media-video';
+            video.controls = true;
+            video.loop = true;
+            video.playsInline = true;
+            video.preload = 'metadata';
+            video.poster = info.posterUrl;
+            // Prefer HD, fall back to SD
+            const hdSource = document.createElement('source');
+            hdSource.src = info.hdUrl;
+            hdSource.type = 'video/mp4';
+            video.appendChild(hdSource);
+            const sdSource = document.createElement('source');
+            sdSource.src = info.sdUrl;
+            sdSource.type = 'video/mp4';
+            video.appendChild(sdSource);
+            videoContainer.appendChild(video);
+            this.container.appendChild(videoContainer);
+            video.play().catch(() => { });
+        }
+        catch (error) {
+            // Fallback to iframe on API failure
+            this.renderIframe();
+        }
     }
     renderIframe() {
         this.container.innerHTML = '';
