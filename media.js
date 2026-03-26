@@ -261,7 +261,8 @@ class ExternalEmbedPlayer {
         if (previewContainer) {
             const playBtn = previewContainer.querySelector('.embed-play-button');
             if (playBtn) {
-                playBtn.innerHTML = '⏳';
+                playBtn.classList.add('loading');
+                playBtn.innerHTML = '';
             }
         }
         try {
