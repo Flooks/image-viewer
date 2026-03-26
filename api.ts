@@ -196,7 +196,8 @@ export class RedgifsClient {
   private async getToken(): Promise<string> {
     if (this.token && Date.now() < this.tokenExpiry) return this.token;
     const apiUrl = 'https://api.redgifs.com/v2/auth/temporary';
-    const response = await fetch(this.corsProxy + encodeURIComponent(apiUrl));
+    const proxyUrl = `${this.corsProxy}?url=${encodeURIComponent(apiUrl)}`;
+    const response = await fetch(proxyUrl);
     if (!response.ok) throw new Error(`Redgifs auth failed: ${response.status}`);
     const data = await response.json();
     this.token = data.token;
@@ -206,9 +207,8 @@ export class RedgifsClient {
 
   async getVideoInfo(videoId: string): Promise<RedgifsVideoInfo> {
     const token = await this.getToken();
-    // Pass token as query param — corsproxy.io strips Authorization headers
-    const apiUrl = `https://api.redgifs.com/v2/gifs/${videoId.toLowerCase()}?token=${token}`;
-    const proxyUrl = `${this.corsProxy}${encodeURIComponent(apiUrl)}`;
+    const apiUrl = `https://api.redgifs.com/v2/gifs/${videoId.toLowerCase()}`;
+    const proxyUrl = `${this.corsProxy}?url=${encodeURIComponent(apiUrl)}&reqHeaders=${encodeURIComponent('authorization:Bearer ' + token)}`;
     const response = await fetch(proxyUrl);
     
     if (!response.ok) throw new Error(`Redgifs API failed: ${response.status}`);
