@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start the Python HTTP server for Reddit Image Viewer
+# Start the Node.js server for Reddit Image Viewer
 
 PORT=8000
 
@@ -11,8 +11,8 @@ if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
 fi
 
 # Start the server
-echo "Starting Python HTTP server on port $PORT..."
-python3 -m http.server $PORT
+echo "Starting Node.js server on port $PORT..."
+node server.js
 
 # Note: This will run in foreground. Press Ctrl+C to stop.
 # To run in background, use: ./start-server.sh &

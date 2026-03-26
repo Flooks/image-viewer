@@ -1,5 +1,5 @@
 #!/bin/bash
-# Restart the Python HTTP server for Reddit Image Viewer
+# Restart the Node.js server for Reddit Image Viewer
 
 PORT=8000
 
@@ -16,8 +16,8 @@ else
 fi
 
 # Start the server in background
-echo "Starting Python HTTP server on port $PORT..."
-nohup python3 -m http.server $PORT > server.log 2>&1 &
+echo "Starting Node.js server on port $PORT..."
+nohup node server.js > server.log 2>&1 &
 NEW_PID=$!
 
 echo "Server started in background (PID: $NEW_PID)"
