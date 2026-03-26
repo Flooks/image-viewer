@@ -29,7 +29,46 @@ async function getRedgifsToken() {
 }
 
 const server = http.createServer(async (req, res) => {
-  // Redgifs proxy endpoint
+  // Redgifs media proxy — streams video/images from media.redgifs.com
+  if (req.url.startsWith('/media/redgifs/')) {
+    const mediaPath = req.url.replace('/media/redgifs/', '').split('?')[0];
+    if (!mediaPath || !/^[a-zA-Z0-9._-]+$/.test(mediaPath)) {
+      res.writeHead(400); res.end('Invalid path'); return;
+    }
+    try {
+      const token = await getRedgifsToken();
+      const mediaResp = await fetch(`https://media.redgifs.com/${mediaPath}`, {
+        headers: {
+          'User-Agent': 'RedditImageViewer/1.0',
+          'Authorization': `Bearer ${token}`,
+          'Referer': 'https://www.redgifs.com/',
+          ...(req.headers.range ? { 'Range': req.headers.range } : {})
+        }
+      });
+      const headers = {
+        'Content-Type': mediaResp.headers.get('content-type') || 'video/mp4',
+        'Access-Control-Allow-Origin': '*',
+        'Accept-Ranges': 'bytes',
+      };
+      if (mediaResp.headers.get('content-length')) headers['Content-Length'] = mediaResp.headers.get('content-length');
+      if (mediaResp.headers.get('content-range')) headers['Content-Range'] = mediaResp.headers.get('content-range');
+      res.writeHead(mediaResp.status, headers);
+      const reader = mediaResp.body.getReader();
+      const pump = async () => {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) { res.end(); return; }
+          res.write(value);
+        }
+      };
+      await pump();
+    } catch (err) {
+      res.writeHead(502); res.end('Proxy error');
+    }
+    return;
+  }
+
+  // Redgifs API proxy endpoint
   if (req.url.startsWith('/api/redgifs/')) {
     const videoId = req.url.replace('/api/redgifs/', '').split('?')[0];
     if (!videoId || !/^[a-zA-Z0-9]+$/.test(videoId)) {
@@ -48,9 +87,13 @@ const server = http.createServer(async (req, res) => {
       if (!apiResp.ok) throw new Error(`Redgifs API: ${apiResp.status}`);
       const data = await apiResp.json();
       const gif = data.gif;
+      // Return proxied URLs through our local server
+      const hdFile = gif.urls.hd.split('/').pop();
+      const sdFile = gif.urls.sd.split('/').pop();
+      const posterFile = gif.urls.poster.split('/').pop();
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({
-        hdUrl: gif.urls.hd, sdUrl: gif.urls.sd, posterUrl: gif.urls.poster,
+        hdUrl: `/media/redgifs/${hdFile}`, sdUrl: `/media/redgifs/${sdFile}`, posterUrl: `/media/redgifs/${posterFile}`,
         width: gif.width, height: gif.height, hasAudio: gif.hasAudio, duration: gif.duration
       }));
     } catch (err) {
