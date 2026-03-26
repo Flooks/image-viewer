@@ -179,8 +179,14 @@ export class RedgifsClient {
     async getToken() {
         if (this.token && Date.now() < this.tokenExpiry)
             return this.token;
-        const url = this.corsProxy + encodeURIComponent('https://api.redgifs.com/v2/auth/temporary');
-        const response = await fetch(url);
+        const apiUrl = 'https://api.redgifs.com/v2/auth/temporary';
+        let response;
+        try {
+            response = await fetch(apiUrl);
+        }
+        catch {
+            response = await fetch(this.corsProxy + encodeURIComponent(apiUrl));
+        }
         if (!response.ok)
             throw new Error(`Redgifs auth failed: ${response.status}`);
         const data = await response.json();
@@ -191,10 +197,21 @@ export class RedgifsClient {
     async getVideoInfo(videoId) {
         const token = await this.getToken();
         const apiUrl = `https://api.redgifs.com/v2/gifs/${videoId.toLowerCase()}`;
-        const url = this.corsProxy + encodeURIComponent(apiUrl);
-        const response = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // Try direct API call first (Redgifs API supports CORS)
+        // Fall back to CORS proxy if direct call fails
+        let response;
+        try {
+            response = await fetch(apiUrl, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        }
+        catch {
+            // Direct call blocked by CORS/network, try via proxy with header in URL
+            const proxyUrl = `${this.corsProxy}${encodeURIComponent(apiUrl)}`;
+            response = await fetch(proxyUrl, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        }
         if (!response.ok)
             throw new Error(`Redgifs API failed: ${response.status}`);
         const data = await response.json();
