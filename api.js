@@ -180,7 +180,7 @@ export class RedgifsClient {
         if (this.token && Date.now() < this.tokenExpiry)
             return this.token;
         const apiUrl = 'https://api.redgifs.com/v2/auth/temporary';
-        const proxyUrl = `${this.corsProxy}?url=${encodeURIComponent(apiUrl)}`;
+        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}`;
         const response = await fetch(proxyUrl);
         if (!response.ok)
             throw new Error(`Redgifs auth failed: ${response.status}`);
@@ -192,7 +192,7 @@ export class RedgifsClient {
     async getVideoInfo(videoId) {
         const token = await this.getToken();
         const apiUrl = `https://api.redgifs.com/v2/gifs/${videoId.toLowerCase()}`;
-        const proxyUrl = `${this.corsProxy}?url=${encodeURIComponent(apiUrl)}&reqHeaders=${encodeURIComponent('authorization:Bearer ' + token)}`;
+        const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}&reqHeaders=${encodeURIComponent('authorization:Bearer ' + token)}`;
         const response = await fetch(proxyUrl);
         if (!response.ok)
             throw new Error(`Redgifs API failed: ${response.status}`);
