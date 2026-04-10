@@ -61,9 +61,30 @@ export class MetadataDisplay {
             const dd = String(date.getDate()).padStart(2, '0');
             const mm = String(date.getMonth() + 1).padStart(2, '0');
             const yyyy = date.getFullYear();
+            const now = Date.now();
+            const diffMs = now - date.getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            let relative;
+            if (diffMins < 1)
+                relative = 'just now';
+            else if (diffMins < 60)
+                relative = `${diffMins}m ago`;
+            else if (diffHours < 24)
+                relative = `${diffHours}h ago`;
+            else if (diffDays === 1)
+                relative = '1 day ago';
+            else if (diffDays < 30)
+                relative = `${diffDays} days ago`;
+            else if (diffDays < 365)
+                relative = `${Math.floor(diffDays / 30)}mo ago`;
+            else
+                relative = `${Math.floor(diffDays / 365)}y ago`;
             const dateSpan = document.createElement('span');
             dateSpan.className = 'post-date';
-            dateSpan.textContent = `${dd}/${mm}/${yyyy}`;
+            dateSpan.textContent = relative;
+            dateSpan.title = `${dd}/${mm}/${yyyy}`;
             authorContainer.appendChild(dateSpan);
         }
         container.appendChild(authorContainer);
