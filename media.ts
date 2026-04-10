@@ -36,6 +36,8 @@ export class MetadataDisplay {
     const authorContainer = document.createElement('div');
     authorContainer.className = 'post-author';
     
+    const authorLeft = document.createElement('span');
+    
     if (metadata.subreddit) {
       const subredditLink = document.createElement('a');
       subredditLink.className = 'subreddit-link';
@@ -45,11 +47,11 @@ export class MetadataDisplay {
         e.preventDefault();
         this.stateManager.setContentSource({ type: 'subreddit', name: metadata.subreddit! });
       });
-      authorContainer.appendChild(subredditLink);
+      authorLeft.appendChild(subredditLink);
     }
     
     if (metadata.author) {
-      if (metadata.subreddit) authorContainer.appendChild(document.createTextNode(' • '));
+      if (metadata.subreddit) authorLeft.appendChild(document.createTextNode(' • '));
       const authorLink = document.createElement('a');
       authorLink.className = 'author-username-link';
       authorLink.href = `#/u/${metadata.author}`;
@@ -58,10 +60,23 @@ export class MetadataDisplay {
         e.preventDefault();
         this.stateManager.setContentSource({ type: 'user', username: metadata.author });
       });
-      authorContainer.appendChild(authorLink);
+      authorLeft.appendChild(authorLink);
     } else {
-      if (metadata.subreddit) authorContainer.appendChild(document.createTextNode(' • '));
-      authorContainer.appendChild(document.createTextNode('u/[deleted]'));
+      if (metadata.subreddit) authorLeft.appendChild(document.createTextNode(' • '));
+      authorLeft.appendChild(document.createTextNode('u/[deleted]'));
+    }
+    
+    authorContainer.appendChild(authorLeft);
+    
+    if (metadata.createdDate) {
+      const date = new Date(metadata.createdDate * 1000);
+      const dd = String(date.getDate()).padStart(2, '0');
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const yyyy = date.getFullYear();
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'post-date';
+      dateSpan.textContent = `${dd}/${mm}/${yyyy}`;
+      authorContainer.appendChild(dateSpan);
     }
     
     container.appendChild(authorContainer);

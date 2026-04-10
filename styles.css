@@ -827,6 +827,15 @@ main {
 .metadata-display .post-author {
   font-size: 11px;
   color: #666;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metadata-display .post-date {
+  color: #888;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .metadata-display .author-username-link {

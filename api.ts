@@ -63,7 +63,8 @@ export class ResponseParser {
         title: postData.title,
         author: postData.author,
         postURL: `https://www.reddit.com${postData.permalink}`,
-        subreddit: postData.subreddit
+        subreddit: postData.subreddit,
+        createdDate: postData.created_utc
       };
       
       const galleryData = this.extractGalleryData(postData);

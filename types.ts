@@ -15,6 +15,7 @@ export interface PostMetadata {
   author: string;
   postURL: string;
   subreddit?: string;
+  createdDate?: number;
 }
 
 export interface VideoData {
@@ -113,6 +114,7 @@ export interface RedditPostData {
   url: string;
   subreddit?: string;
   domain?: string;
+  created_utc?: number;
   post_hint?: string;
   is_video?: boolean;
   media?: {
