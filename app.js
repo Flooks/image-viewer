@@ -6,10 +6,18 @@ import { SearchInterface } from './search.js';
 import { SortInterface, ColumnSelector, VideoToggle, GalleryExpandToggle, DarkModeToggle, LayoutToggle } from './controls.js';
 import { MediaGallery, ErrorDisplay } from './media.js';
 function initializeApplication() {
+    const isAndroid = window.location.hostname === 'appassets.androidplatform.net';
     const apiClient = new APIClient();
     const responseParser = new ResponseParser();
     const router = new URLRouter();
     const stateManager = new StateManager(apiClient, responseParser, router);
+    // Android-specific defaults: 1 column, dark mode on, masonry off
+    if (isAndroid) {
+        document.body.classList.add('android-app');
+        stateManager.setColumnCount(1);
+        stateManager.setDarkMode(true);
+        stateManager.setMasonryLayout(false);
+    }
     // Error display
     const errorDisplay = new ErrorDisplay(stateManager);
     stateManager.setErrorDisplay(errorDisplay);
@@ -32,11 +40,13 @@ function initializeApplication() {
     const sortContainer = document.getElementById('sort-container');
     if (sortContainer)
         sortContainer.appendChild(sortInterface.render());
-    // Column selector
-    const columnSelector = new ColumnSelector(stateManager);
-    const columnSelectorContainer = document.getElementById('column-selector-container');
-    if (columnSelectorContainer)
-        columnSelectorContainer.appendChild(columnSelector.render());
+    // Column selector (hidden on Android - always 1 column)
+    if (!isAndroid) {
+        const columnSelector = new ColumnSelector(stateManager);
+        const columnSelectorContainer = document.getElementById('column-selector-container');
+        if (columnSelectorContainer)
+            columnSelectorContainer.appendChild(columnSelector.render());
+    }
     // Toggles
     const videoToggle = new VideoToggle(stateManager);
     const videoToggleContainer = document.getElementById('video-toggle-container');
@@ -46,16 +56,22 @@ function initializeApplication() {
     const galleryToggleContainer = document.getElementById('gallery-toggle-container');
     if (galleryToggleContainer)
         galleryToggleContainer.appendChild(galleryExpandToggle.render());
-    const darkModeToggle = new DarkModeToggle(stateManager);
-    const darkModeContainer = document.getElementById('dark-mode-toggle-container');
-    if (darkModeContainer)
-        darkModeContainer.appendChild(darkModeToggle.render());
+    // Dark mode toggle (hidden on Android - always dark)
+    if (!isAndroid) {
+        const darkModeToggle = new DarkModeToggle(stateManager);
+        const darkModeContainer = document.getElementById('dark-mode-toggle-container');
+        if (darkModeContainer)
+            darkModeContainer.appendChild(darkModeToggle.render());
+    }
     if (stateManager.getState().darkMode)
         document.body.classList.add('dark-mode');
-    const layoutToggle = new LayoutToggle(stateManager);
-    const layoutToggleContainer = document.getElementById('layout-toggle-container');
-    if (layoutToggleContainer)
-        layoutToggleContainer.appendChild(layoutToggle.render());
+    // Layout toggle (hidden on Android - always single column, no masonry)
+    if (!isAndroid) {
+        const layoutToggle = new LayoutToggle(stateManager);
+        const layoutToggleContainer = document.getElementById('layout-toggle-container');
+        if (layoutToggleContainer)
+            layoutToggleContainer.appendChild(layoutToggle.render());
+    }
     // Infinite scroll
     const loadingIndicator = new LoadingIndicator();
     stateManager.setLoadingIndicator(loadingIndicator);
@@ -67,11 +83,8 @@ function initializeApplication() {
     stateManager.setOnStateChange(() => {
         const state = stateManager.getState();
         sortInterface.updateFromState();
-        columnSelector.updateFromState();
         videoToggle.updateFromState();
         galleryExpandToggle.updateFromState();
-        darkModeToggle.updateFromState();
-        layoutToggle.updateFromState();
         const config = {
             columnCount: state.columnCount, showVideos: state.showVideos,
             expandGalleries: state.expandGalleries, masonryLayout: state.masonryLayout

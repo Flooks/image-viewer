@@ -16,13 +16,27 @@ export class DebounceManager {
 }
 
 export class SuggestionAPIClient {
-  private readonly corsProxy = 'https://corsproxy.io/?';
+  private readonly isAndroid: boolean;
+  private readonly corsProxy: string;
   private currentAbortController: AbortController | null = null;
+
+  constructor() {
+    this.isAndroid = window.location.hostname === 'appassets.androidplatform.net';
+    this.corsProxy = this.isAndroid ? '' : 'https://corsproxy.io/?';
+  }
+
+  private buildUrl(redditUrl: string): string {
+    if (this.isAndroid) {
+      const parsed = new URL(redditUrl);
+      return `https://appassets.androidplatform.net/reddit-api${parsed.pathname}${parsed.search}`;
+    }
+    return this.corsProxy + encodeURIComponent(redditUrl);
+  }
   
   async fetchSubredditSuggestions(query: string, signal?: AbortSignal): Promise<SearchSuggestion[]> {
     try {
       const redditUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&type=sr&limit=10`;
-      const url = this.corsProxy + encodeURIComponent(redditUrl);
+      const url = this.buildUrl(redditUrl);
       const response = await fetch(url, { method: 'GET', signal });
       if (!response.ok) return [];
       const data = await response.json();
@@ -40,7 +54,7 @@ export class SuggestionAPIClient {
   async fetchUsernameSuggestions(query: string, signal?: AbortSignal): Promise<SearchSuggestion[]> {
     try {
       const redditUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&type=user&limit=10`;
-      const url = this.corsProxy + encodeURIComponent(redditUrl);
+      const url = this.buildUrl(redditUrl);
       const response = await fetch(url, { method: 'GET', signal });
       if (!response.ok) return [];
       const data = await response.json();

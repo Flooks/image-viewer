@@ -16,13 +16,21 @@ export class DebounceManager {
 }
 export class SuggestionAPIClient {
     constructor() {
-        this.corsProxy = 'https://corsproxy.io/?';
         this.currentAbortController = null;
+        this.isAndroid = window.location.hostname === 'appassets.androidplatform.net';
+        this.corsProxy = this.isAndroid ? '' : 'https://corsproxy.io/?';
+    }
+    buildUrl(redditUrl) {
+        if (this.isAndroid) {
+            const parsed = new URL(redditUrl);
+            return `https://appassets.androidplatform.net/reddit-api${parsed.pathname}${parsed.search}`;
+        }
+        return this.corsProxy + encodeURIComponent(redditUrl);
     }
     async fetchSubredditSuggestions(query, signal) {
         try {
             const redditUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&type=sr&limit=10`;
-            const url = this.corsProxy + encodeURIComponent(redditUrl);
+            const url = this.buildUrl(redditUrl);
             const response = await fetch(url, { method: 'GET', signal });
             if (!response.ok)
                 return [];
@@ -43,7 +51,7 @@ export class SuggestionAPIClient {
     async fetchUsernameSuggestions(query, signal) {
         try {
             const redditUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&type=user&limit=10`;
-            const url = this.corsProxy + encodeURIComponent(redditUrl);
+            const url = this.buildUrl(redditUrl);
             const response = await fetch(url, { method: 'GET', signal });
             if (!response.ok)
                 return [];

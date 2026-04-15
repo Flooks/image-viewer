@@ -50,6 +50,13 @@ export class SortInterface {
         this.updateTimespanVisibility(this.stateManager.getState().sortOrder);
         this.sortOrderSelect.addEventListener('change', () => this.handleSortOrderChange());
         this.timespanSelect.addEventListener('change', () => this.handleTimespanChange());
+        // On Android, native <select> dropdowns can fail in WebView.
+        // Add a tap handler that cycles through options as a workaround.
+        const isAndroid = window.location.hostname === 'appassets.androidplatform.net';
+        if (isAndroid) {
+            this.makeSelectCycleable(this.sortOrderSelect, sortOrders.map(s => s.value), () => this.handleSortOrderChange());
+            this.makeSelectCycleable(this.timespanSelect, timespans.map(t => t.value), () => this.handleTimespanChange());
+        }
     }
     render() { return this.container; }
     getSortOrder() { return this.sortOrderSelect.value; }
@@ -70,6 +77,37 @@ export class SortInterface {
         this.sortOrderSelect.value = state.sortOrder;
         this.timespanSelect.value = state.timespan;
         this.updateTimespanVisibility(state.sortOrder);
+    }
+    makeSelectCycleable(select, values, onChange) {
+        // Hide the real select and replace with a tappable button that cycles values
+        select.style.display = 'none';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'android-cycle-button';
+        button.textContent = select.options[select.selectedIndex]?.text || values[0];
+        select.parentElement?.appendChild(button);
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const currentIndex = values.indexOf(select.value);
+            const nextIndex = (currentIndex + 1) % values.length;
+            select.value = values[nextIndex];
+            button.textContent = select.options[select.selectedIndex]?.text || values[nextIndex];
+            onChange();
+        });
+        // Keep button text in sync when state changes externally
+        const observer = new MutationObserver(() => {
+            button.textContent = select.options[select.selectedIndex]?.text || select.value;
+        });
+        observer.observe(select, { attributes: true, attributeFilter: ['value'] });
+        // Also sync on programmatic value changes via a polling check
+        let lastValue = select.value;
+        setInterval(() => {
+            if (select.value !== lastValue) {
+                lastValue = select.value;
+                button.textContent = select.options[select.selectedIndex]?.text || select.value;
+            }
+        }, 500);
     }
 }
 export class ColumnSelector {

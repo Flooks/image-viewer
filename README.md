@@ -87,7 +87,68 @@ The application is split into focused ES2020 modules:
 - `app.ts` — Bootstrap and initialization
 - `styles.css` — All styling
 
+## Android App
+
+An Android WebView wrapper is included in the `android/` directory, allowing the app to run as a native Android application named "Viewer".
+
+### Features (Android-specific)
+
+- Single-column layout optimized for mobile screens
+- Dark mode enabled by default
+- Compact header: search and controls fit in two rows
+- Tap-to-cycle sort selector (workaround for WebView select dropdown issues)
+- Biometric/PIN lock: app requires authentication when resuming from background
+- Privacy screen: content hidden in app switcher (FLAG_SECURE)
+- Reddit API requests proxied through Java to bypass CORS restrictions
+- External links open in the system browser
+
+### Setup
+
+1. Install [Android Studio](https://developer.android.com/studio)
+2. Copy web assets into the Android project:
+
+   **On Windows:**
+   ```bash
+   android\copy-web-assets.bat
+   ```
+
+   **On Linux/Mac:**
+   ```bash
+   bash android/copy-web-assets.sh
+   ```
+
+3. Open the `android/` folder in Android Studio
+4. Let Gradle sync, then run on an emulator or connected device
+
+### Deploying to a Physical Device
+
+1. Enable Developer Options on your phone (tap Build Number 7 times in Settings → About Phone)
+2. Enable USB Debugging in Developer Options
+3. Connect via USB and select your device in Android Studio's device dropdown
+4. Click Run
+
+The app stays installed after disconnecting the USB cable.
+
+### Debugging
+
+- Open Chrome on your PC and go to `chrome://inspect` to get full DevTools for the WebView
+- In Android Studio, use the Logcat tab filtered by "WebView" for console messages
+
+### Notes
+
+- The copy-web-assets script compiles TypeScript and copies all web files to `android/app/src/main/assets/web/`
+- Cache-busting query params are stripped automatically
+- Web assets are served via `WebViewAssetLoader` over a virtual HTTPS origin to support ES modules
+- Reddit API calls are proxied through Java (`shouldInterceptRequest`) to avoid CORS issues
+- NSFW subreddits may not load due to Reddit API restrictions on unauthenticated requests
+
+### Known Limitations
+
+- Native `<select>` dropdowns don't work in this WebView configuration; sort controls use tap-to-cycle buttons instead
+- NSFW content requires Reddit OAuth authentication (not yet implemented)
+
 ## Requirements
 
-- Modern browser with ES2020 module support
+- Modern browser with ES2020 module support (for web version)
 - Internet connection for Reddit API access
+- Android Studio with SDK 34 (for Android version)

@@ -4,7 +4,24 @@ import {
 } from './types.js';
 
 export class APIClient {
-  private readonly corsProxy = 'https://corsproxy.io/?';
+  private readonly isAndroid: boolean;
+  private readonly corsProxy: string;
+
+  constructor() {
+    this.isAndroid = window.location.hostname === 'appassets.androidplatform.net';
+    this.corsProxy = this.isAndroid ? '' : 'https://corsproxy.io/?';
+  }
+
+  private buildUrl(redditUrl: string): string {
+    if (this.isAndroid) {
+      // Route through Java proxy to bypass CORS
+      // e.g. https://www.reddit.com/r/pics/hot.json?t=day
+      //   -> https://appassets.androidplatform.net/reddit-api/r/pics/hot.json?t=day
+      const parsed = new URL(redditUrl);
+      return `https://appassets.androidplatform.net/reddit-api${parsed.pathname}${parsed.search}`;
+    }
+    return this.corsProxy + encodeURIComponent(redditUrl);
+  }
   
   async fetchSubreddit(
     subreddit: string, sortOrder: SortOrder, timespan?: Timespan, after?: string
@@ -16,7 +33,7 @@ export class APIClient {
     const queryString = params.toString();
     if (queryString) redditUrl += `?${queryString}`;
     
-    const url = this.corsProxy + encodeURIComponent(redditUrl);
+    const url = this.buildUrl(redditUrl);
     
     try {
       const response = await fetch(url, { method: 'GET' });
@@ -39,7 +56,7 @@ export class APIClient {
     if (after) params.append('after', after);
     redditUrl += `?${params.toString()}`;
     
-    const url = this.corsProxy + encodeURIComponent(redditUrl);
+    const url = this.buildUrl(redditUrl);
     
     try {
       const response = await fetch(url, { method: 'GET' });
