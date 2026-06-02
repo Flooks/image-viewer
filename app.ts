@@ -105,7 +105,12 @@ function initializeApplication(): void {
         infiniteScrollManager.setEnabled(false);
       } else {
         loadingContainer.style.display = 'none';
-        if (state.mediaPosts.length > 0) infiniteScrollManager.setEnabled(true);
+        if (state.mediaPosts.length > 0) {
+          infiniteScrollManager.setEnabled(true);
+          // If rendered content doesn't fill the viewport (e.g. videos hidden),
+          // trigger loading more immediately
+          requestAnimationFrame(() => infiniteScrollManager.checkAndLoadIfNeeded());
+        }
       }
     }
   });

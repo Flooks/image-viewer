@@ -11,6 +11,11 @@ export class InfiniteScrollManager {
     window.addEventListener('scroll', this.handleScroll);
     window.addEventListener('resize', this.handleScroll);
   }
+
+  checkAndLoadIfNeeded(): void {
+    if (!this.enabled || !this.onLoadMore) return;
+    if (this.checkScrollPosition()) this.onLoadMore();
+  }
   
   private handleScroll = (): void => {
     if (!this.enabled || this.isThrottled) return;

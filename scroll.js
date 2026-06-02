@@ -20,6 +20,12 @@ export class InfiniteScrollManager {
         window.addEventListener('scroll', this.handleScroll);
         window.addEventListener('resize', this.handleScroll);
     }
+    checkAndLoadIfNeeded() {
+        if (!this.enabled || !this.onLoadMore)
+            return;
+        if (this.checkScrollPosition())
+            this.onLoadMore();
+    }
     checkScrollPosition() {
         const scrollTop = window.scrollY;
         const windowHeight = window.innerHeight;
