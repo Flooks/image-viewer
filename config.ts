@@ -8,7 +8,7 @@ const REDREADER_CONFIG: OAuthConfig = {
   clientId: 'yH0aTnJEt6qUgGn835B4vg',
   redirectUri: 'redreader://rr_oauth_redir',
   userAgent: 'org.quantumbadger.redreader/1.25.1',
-  scope: 'read'
+  scope: 'read history'  // read for subreddits, history for user profiles
 };
 
 // Your own OAuth credentials (once approved)
@@ -17,7 +17,7 @@ const OWN_CONFIG: OAuthConfig = {
   clientId: 'PASTE_YOUR_CLIENT_ID_HERE',
   redirectUri: 'http://localhost:8000/auth.html',
   userAgent: 'web:RedditImageViewer:v1.0 (by /u/YOUR_USERNAME)',
-  scope: 'read'
+  scope: 'read history'  // read for subreddits, history for user profiles
 };
 
 export const OAUTH_CONFIG: OAuthConfig = USE_OWN_CREDENTIALS ? OWN_CONFIG : REDREADER_CONFIG;
