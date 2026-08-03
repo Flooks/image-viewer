@@ -1,5 +1,28 @@
 // Core Type Definitions for Reddit Image Viewer
 
+// OAuth Configuration
+export interface OAuthConfig {
+  clientId: string;
+  redirectUri: string;
+  userAgent: string;
+  scope: string;
+}
+
+// OAuth Token
+export interface OAuthToken {
+  accessToken: string;
+  tokenType: string;
+  expiresAt: number;  // Unix timestamp (ms)
+  scope: string;
+}
+
+// Auth State
+export interface AuthState {
+  isAuthenticated: boolean;
+  token: OAuthToken | null;
+  error: string | null;
+}
+
 // Content Source Types
 export type ContentSource = 
   | { type: 'subreddit', name: string }

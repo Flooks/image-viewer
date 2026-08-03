@@ -1,31 +1,70 @@
 export class APIClient {
     constructor() {
+        this.oauthManager = null;
         this.isAndroid = window.location.hostname === 'appassets.androidplatform.net';
-        this.corsProxy = this.isAndroid ? '' : 'https://corsproxy.io/?';
+        this.corsProxy = this.isAndroid ? '' : '/browser-proxy/';
     }
-    buildUrl(redditUrl) {
+    /**
+     * Set the OAuth manager for authenticated requests
+     */
+    setOAuthManager(oauthManager) {
+        this.oauthManager = oauthManager;
+    }
+    /**
+     * Check if the client is configured for authenticated requests
+     */
+    isAuthenticatedMode() {
+        return this.oauthManager !== null && this.oauthManager.isAuthenticated();
+    }
+    buildUrl(endpoint) {
+        // Use oauth.reddit.com for authenticated requests
+        const isOAuth = this.oauthManager?.isAuthenticated();
+        const baseUrl = isOAuth
+            ? 'https://oauth.reddit.com'
+            : 'https://www.reddit.com';
+        const fullUrl = `${baseUrl}${endpoint}`;
         if (this.isAndroid) {
-            // Route through Java proxy to bypass CORS
-            // e.g. https://www.reddit.com/r/pics/hot.json?t=day
-            //   -> https://appassets.androidplatform.net/reddit-api/r/pics/hot.json?t=day
-            const parsed = new URL(redditUrl);
-            return `https://appassets.androidplatform.net/reddit-api${parsed.pathname}${parsed.search}`;
+            const parsed = new URL(fullUrl);
+            // For Android, prefix OAuth requests with 'oauth/' so the proxy knows to route them differently
+            const pathPrefix = isOAuth ? '/reddit-api/oauth' : '/reddit-api';
+            return `https://appassets.androidplatform.net${pathPrefix}${parsed.pathname}${parsed.search}`;
         }
-        return this.corsProxy + encodeURIComponent(redditUrl);
+        return this.corsProxy + encodeURIComponent(fullUrl);
+    }
+    getRequestHeaders() {
+        const headers = {};
+        if (this.oauthManager?.isAuthenticated()) {
+            const token = this.oauthManager.getAccessToken();
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            headers['User-Agent'] = this.oauthManager.getUserAgent();
+        }
+        return headers;
     }
     async fetchSubreddit(subreddit, sortOrder, timespan, after) {
-        let redditUrl = `https://www.reddit.com/r/${subreddit}/${sortOrder}.json`;
+        // Build endpoint - no .json suffix needed for oauth.reddit.com
+        const isOAuth = this.oauthManager?.isAuthenticated();
+        let endpoint = `/r/${subreddit}/${sortOrder}`;
+        if (!isOAuth) {
+            endpoint += '.json';
+        }
         const params = new URLSearchParams();
         if (timespan)
             params.append('t', timespan);
         if (after)
             params.append('after', after);
+        if (isOAuth)
+            params.append('raw_json', '1'); // Prevent HTML entity encoding
         const queryString = params.toString();
         if (queryString)
-            redditUrl += `?${queryString}`;
-        const url = this.buildUrl(redditUrl);
+            endpoint += `?${queryString}`;
+        const url = this.buildUrl(endpoint);
         try {
-            const response = await fetch(url, { method: 'GET' });
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getRequestHeaders()
+            });
             if (!response.ok)
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             const data = await response.json();
@@ -38,17 +77,27 @@ export class APIClient {
         }
     }
     async fetchUserPosts(username, sortOrder, timespan, after) {
-        let redditUrl = `https://www.reddit.com/user/${username}/submitted.json`;
+        // Build endpoint - no .json suffix needed for oauth.reddit.com
+        const isOAuth = this.oauthManager?.isAuthenticated();
+        let endpoint = `/user/${username}/submitted`;
+        if (!isOAuth) {
+            endpoint += '.json';
+        }
         const params = new URLSearchParams();
         params.append('sort', sortOrder);
         if (timespan)
             params.append('t', timespan);
         if (after)
             params.append('after', after);
-        redditUrl += `?${params.toString()}`;
-        const url = this.buildUrl(redditUrl);
+        if (isOAuth)
+            params.append('raw_json', '1');
+        endpoint += `?${params.toString()}`;
+        const url = this.buildUrl(endpoint);
         try {
-            const response = await fetch(url, { method: 'GET' });
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getRequestHeaders()
+            });
             if (!response.ok)
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             const data = await response.json();

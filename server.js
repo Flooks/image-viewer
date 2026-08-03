@@ -6,6 +6,31 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 8000;
 
+const SESSION_FILE = path.join(__dirname, '.reddit-session.json');
+
+// Load Reddit session cookies from file (created by reddit-login.cjs)
+function loadRedditCookies() {
+  try {
+    if (fs.existsSync(SESSION_FILE)) {
+      const cookies = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+      return cookies.map(c => `${c.name}=${c.value}`).join('; ');
+    }
+  } catch (e) {
+    console.warn('Warning: Could not load Reddit session cookies:', e.message);
+  }
+  // Fallback to env var
+  if (process.env.REDDIT_SESSION) {
+    return `reddit_session=${process.env.REDDIT_SESSION}`;
+  }
+  console.warn('Warning: No Reddit session found. Run "node reddit-login.cjs" to authenticate.');
+  return '';
+}
+
+let redditCookieString = loadRedditCookies();
+
+// Reload cookies periodically (in case user re-runs login script)
+setInterval(() => { redditCookieString = loadRedditCookies(); }, 60000);
+
 const MIME_TYPES = {
   '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
   '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -29,6 +54,63 @@ async function getRedgifsToken() {
 }
 
 const server = http.createServer(async (req, res) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization, User-Agent, Content-Type',
+      'Access-Control-Max-Age': '86400'
+    });
+    res.end();
+    return;
+  }
+
+  // Reddit API proxy — forwards OAuth Authorization header if present
+  if (req.url.startsWith('/browser-proxy/')) {
+    const encoded = req.url.replace('/browser-proxy/', '');
+    const redditUrl = decodeURIComponent(encoded);
+    
+    // Check if this is an OAuth request (client sends Authorization header)
+    const clientAuthHeader = req.headers['authorization'];
+    const clientUserAgent = req.headers['user-agent'];
+    const isOAuthRequest = clientAuthHeader && clientAuthHeader.startsWith('Bearer ');
+    
+    try {
+      const headers = {
+        'Accept': 'application/json, text/html;q=0.9, */*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      };
+      
+      if (isOAuthRequest) {
+        // OAuth mode: forward the Authorization header and use the client's User-Agent
+        headers['Authorization'] = clientAuthHeader;
+        headers['User-Agent'] = clientUserAgent || 'RedditImageViewer/1.0';
+        console.log(`[OAuth Proxy] ${redditUrl}`);
+      } else {
+        // Legacy mode: use browser cookies
+        headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+        headers['Cookie'] = redditCookieString;
+        console.log(`[Cookie Proxy] ${redditUrl}`);
+      }
+      
+      const redditResp = await fetch(redditUrl, {
+        headers,
+        redirect: 'follow'
+      });
+      const body = await redditResp.text();
+      res.writeHead(redditResp.status, {
+        'Content-Type': redditResp.headers.get('content-type') || 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end(body);
+    } catch (err) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Reddit proxy error: ' + err.message }));
+    }
+    return;
+  }
+
   // Redgifs media proxy — streams video/images from media.redgifs.com
   if (req.url.startsWith('/media/redgifs/')) {
     const mediaPath = req.url.replace('/media/redgifs/', '').split('?')[0];

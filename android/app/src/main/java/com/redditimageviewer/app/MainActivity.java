@@ -141,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
                 if ("appassets.androidplatform.net".equals(host)) {
                     String path = uri.getPath();
                     if (path != null && path.startsWith("/reddit-api/")) {
-                        return proxyRedditRequest(path.substring("/reddit-api/".length()), uri.getQuery());
+                        return proxyRedditRequest(request, path.substring("/reddit-api/".length()), uri.getQuery());
                     }
                     return assetLoader.shouldInterceptRequest(uri);
                 }
@@ -175,18 +175,43 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private WebResourceResponse proxyRedditRequest(String path, String query) {
+        return proxyRedditRequest(null, path, query);
+    }
+
+    private WebResourceResponse proxyRedditRequest(WebResourceRequest request, String path, String query) {
         HttpURLConnection connection = null;
         try {
-            String targetUrl = "https://www.reddit.com/" + path;
+            // Determine if this is an OAuth request (path starts with oauth/)
+            boolean isOAuth = path.startsWith("oauth/");
+            String baseUrl = isOAuth ? "https://oauth.reddit.com/" : "https://www.reddit.com/";
+            String cleanPath = isOAuth ? path.substring("oauth/".length()) : path;
+            
+            String targetUrl = baseUrl + cleanPath;
             if (query != null && !query.isEmpty()) {
-                targetUrl += "?" + query + "&include_over_18=on";
+                targetUrl += "?" + query + (isOAuth ? "&raw_json=1" : "&include_over_18=on");
             } else {
-                targetUrl += "?include_over_18=on";
+                targetUrl += isOAuth ? "?raw_json=1" : "?include_over_18=on";
             }
 
             connection = (HttpURLConnection) new URL(targetUrl).openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", "RedditImageViewer/1.0 Android");
+            
+            // Pass through Authorization header for OAuth requests
+            if (request != null && isOAuth) {
+                String authHeader = request.getRequestHeaders().get("Authorization");
+                if (authHeader != null) {
+                    connection.setRequestProperty("Authorization", authHeader);
+                }
+                String userAgent = request.getRequestHeaders().get("User-Agent");
+                if (userAgent != null) {
+                    connection.setRequestProperty("User-Agent", userAgent);
+                } else {
+                    connection.setRequestProperty("User-Agent", "RedditImageViewer/1.0 Android");
+                }
+            } else {
+                connection.setRequestProperty("User-Agent", "RedditImageViewer/1.0 Android");
+            }
+            
             connection.setConnectTimeout(10000);
             connection.setReadTimeout(15000);
             connection.connect();

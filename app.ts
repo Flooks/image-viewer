@@ -7,10 +7,102 @@ import { StateManager, LoadingIndicator } from './state.js';
 import { SearchInterface } from './search.js';
 import { SortInterface, ColumnSelector, VideoToggle, GalleryExpandToggle, DarkModeToggle, LayoutToggle } from './controls.js';
 import { MediaGallery, ErrorDisplay } from './media.js';
+import { OAuthManager, setupOAuthPopupListener } from './auth.js';
+import { OAUTH_CONFIG, isOAuthConfigured } from './config.js';
+
+/**
+ * Auth UI component for login/logout button
+ */
+class AuthUI {
+  private oauthManager: OAuthManager;
+  private element: HTMLElement;
+  private onAuthChange?: () => void;
+
+  constructor(oauthManager: OAuthManager, onAuthChange?: () => void) {
+    this.oauthManager = oauthManager;
+    this.onAuthChange = onAuthChange;
+    this.element = document.createElement('div');
+    this.element.className = 'auth-ui';
+    this.render();
+
+    // Listen for auth changes
+    this.oauthManager.setOnAuthChange(() => {
+      this.render();
+      if (this.onAuthChange) this.onAuthChange();
+    });
+  }
+
+  private render(): void {
+    const isAuthenticated = this.oauthManager.isAuthenticated();
+    
+    if (!isOAuthConfigured()) {
+      // Show setup message if not configured
+      this.element.innerHTML = `
+        <span class="auth-status auth-not-configured" title="OAuth not configured - edit config.ts">
+          ⚠️ Setup Required
+        </span>
+      `;
+      return;
+    }
+
+    if (isAuthenticated) {
+      const expiration = this.oauthManager.getTimeUntilExpiration();
+      const expirationText = expiration !== null 
+        ? `Token expires in ${Math.floor(expiration / 60)}m` 
+        : '';
+      
+      this.element.innerHTML = `
+        <span class="auth-status auth-logged-in" title="${expirationText}">
+          ✓ Logged in
+        </span>
+        <button class="auth-button auth-logout" title="Log out">
+          Logout
+        </button>
+      `;
+      
+      const logoutBtn = this.element.querySelector('.auth-logout');
+      logoutBtn?.addEventListener('click', () => {
+        this.oauthManager.logout();
+      });
+    } else {
+      this.element.innerHTML = `
+        <button class="auth-button auth-login">
+          Login with Reddit
+        </button>
+      `;
+      
+      const loginBtn = this.element.querySelector('.auth-login');
+      loginBtn?.addEventListener('click', () => {
+        this.oauthManager.initiateLogin();
+      });
+    }
+  }
+
+  getElement(): HTMLElement {
+    return this.element;
+  }
+}
 
 function initializeApplication(): void {
   const isAndroid = window.location.hostname === 'appassets.androidplatform.net';
+  
+  // Initialize OAuth
+  const oauthManager = new OAuthManager(OAUTH_CONFIG);
+  setupOAuthPopupListener(oauthManager);
+  
+  // Check for OAuth callback in URL (redirect flow)
+  oauthManager.checkForCallback();
+  
+  // Check for pending callback from popup (localStorage fallback)
+  const pendingCallback = localStorage.getItem('oauth_pending_callback');
+  if (pendingCallback) {
+    oauthManager.handleCallback(pendingCallback);
+    localStorage.removeItem('oauth_pending_callback');
+  }
+
   const apiClient = new APIClient();
+  apiClient.setOAuthManager(oauthManager);
+  
   const responseParser = new ResponseParser();
   const router = new URLRouter();
   const stateManager = new StateManager(apiClient, responseParser, router);
@@ -22,6 +114,17 @@ function initializeApplication(): void {
     stateManager.setDarkMode(true);
     stateManager.setMasonryLayout(false);
   }
+
+  // Auth UI
+  const authUI = new AuthUI(oauthManager, () => {
+    // Reload content when auth state changes
+    const initialSource = router.parseURL();
+    if (initialSource && oauthManager.isAuthenticated()) {
+      stateManager.setContentSource(initialSource);
+    }
+  });
+  const authContainer = document.getElementById('auth-container');
+  if (authContainer) authContainer.appendChild(authUI.getElement());
 
   // Error display
   const errorDisplay = new ErrorDisplay(stateManager);

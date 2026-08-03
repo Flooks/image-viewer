@@ -1450,3 +1450,91 @@ body.android-app .android-cycle-button {
 body.android-app .android-cycle-button:active {
   background-color: #444;
 }
+
+
+/* ===== Auth UI Styles ===== */
+
+.auth-ui {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-button {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.auth-button.auth-login {
+  background-color: #ff4500;
+  color: white;
+}
+
+.auth-button.auth-login:hover {
+  background-color: #ff5722;
+}
+
+.auth-button.auth-logout {
+  background-color: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+  padding: 4px 10px;
+}
+
+.auth-button.auth-logout:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.auth-status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.auth-status.auth-logged-in {
+  color: #46d160;
+  background-color: rgba(70, 209, 96, 0.1);
+}
+
+.auth-status.auth-not-configured {
+  color: #ff9800;
+  background-color: rgba(255, 152, 0, 0.1);
+  cursor: help;
+}
+
+/* Dark mode auth styles */
+body.dark-mode .auth-button.auth-logout {
+  color: #818384;
+  border-color: #4a4a4c;
+}
+
+body.dark-mode .auth-button.auth-logout:hover {
+  background-color: #3a3a3c;
+  color: #d7dadc;
+}
+
+body.dark-mode .auth-status.auth-logged-in {
+  color: #46d160;
+  background-color: rgba(70, 209, 96, 0.15);
+}
+
+body.dark-mode .auth-status.auth-not-configured {
+  color: #ffb74d;
+  background-color: rgba(255, 183, 77, 0.15);
+}
+
+/* Android auth adjustments */
+body.android-app .auth-ui {
+  display: none; /* Hide on Android for now - OAuth popup doesn't work well in WebView */
+}
+
+body.android-app #auth-container {
+  display: none;
+}
