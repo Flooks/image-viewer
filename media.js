@@ -3,7 +3,13 @@ import { RedgifsClient } from './api.js';
 // Reddit redirects direct browser navigation to i.redd.it/preview.redd.it to its
 // own media page, so we show full-size images via a local viewer page.
 function openFullImage(imageURL) {
-    window.open(`viewer.html#${encodeURIComponent(imageURL)}`, '_blank', 'noopener,noreferrer');
+    let host = '';
+    try {
+        host = new URL(imageURL).hostname;
+    }
+    catch { /* leave empty */ }
+    const target = /(^|\.)redd\.it$/i.test(host) ? `viewer.html#${encodeURIComponent(imageURL)}` : imageURL;
+    window.open(target, '_blank', 'noopener,noreferrer');
 }
 export class MetadataDisplay {
     constructor(stateManager) { this.stateManager = stateManager; }
