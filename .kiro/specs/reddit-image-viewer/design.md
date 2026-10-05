@@ -2,12 +2,14 @@
 
 ## Overview
 
-The Reddit Image Viewer is a client-side web application that provides an intuitive interface for browsing images and videos from Reddit subreddits and user profiles. The application leverages Reddit's public JSON API to fetch content without requiring authentication, making it simple to deploy and run locally.
+The Reddit Image Viewer is a client-side web application that provides an intuitive interface for browsing images and videos from Reddit subreddits and user profiles. It is served by a small local Node.js server (`server.js`) that proxies Reddit's OAuth API (`oauth.reddit.com`) and handles login (see component 14). Reddit blocked its unauthenticated `.json` endpoints in May 2026, so the original no-authentication design no longer applies.
+
+> Note: the "Implementation Details" sections later in this document describe the original design and still show `www.reddit.com/*.json` URLs in their code samples. The endpoints actually used are listed under components 2 and 8c.
 
 The system follows a single-page application (SPA) architecture with client-side routing, allowing users to bookmark specific subreddits or user profiles and navigate using browser history. The interface provides flexible viewing options including sort order selection, timespan filtering, grid layout customization, and gallery display modes.
 
 Key design goals:
-- Simple local deployment with no backend server required
+- Simple local deployment: one local Node.js server, no external hosting
 - Responsive grid-based layout with configurable column counts
 - Efficient media loading with progressive rendering
 - Intuitive navigation between subreddits and user profiles
@@ -46,13 +48,21 @@ The application uses a client-side architecture with the following layers:
 │  │              Data Layer                               │  │
 │  │  - API Client                                         │  │
 │  │  - Response Parser                                    │  │
-│  │  - Session Storage                                    │  │
+│  │  - Preferences (localStorage)                         │  │
+│  │  - OAuth Manager (login state only)                   │  │
 │  └───────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                            ↕
-              ┌─────────────────────────┐
-              │     Reddit JSON API     │
-              └─────────────────────────┘
+              ┌──────────────────────────────┐
+              │  Local server (server.js)    │
+              │  - /browser-proxy/ (+ token) │
+              │  - /auth/* (reddit-auth.js)  │
+              └──────────────────────────────┘
+                           ↕
+              ┌──────────────────────────────┐
+              │  Reddit OAuth API            │
+              │  (oauth.reddit.com)          │
+              └──────────────────────────────┘
 ```
 
 ### Component Interaction Flow
@@ -133,7 +143,7 @@ type ContentSource =
 
 ### 2. API Client
 
-**Responsibility**: Communicates with Reddit JSON API
+**Responsibility**: Communicates with Reddit's OAuth API through the local proxy
 
 **Interface**:
 ```typescript
@@ -164,12 +174,12 @@ type SortOrder = 'hot' | 'new' | 'top' | 'best' | 'rising' | 'controversial';
 type Timespan = 'hour' | 'day' | 'week' | 'month' | 'year' | 'all';
 ```
 
-**API Endpoints**:
-- Subreddit: `https://www.reddit.com/r/{subreddit}/{sort}.json?t={timespan}&after={after}`
-- User: `https://www.reddit.com/user/{username}/submitted/{sort}.json?t={timespan}&after={after}`
+**API Endpoints** (requested as `/browser-proxy/<encoded URL>`):
+- Subreddit: `https://oauth.reddit.com/r/{subreddit}/{sort}?t={timespan}&after={after}&raw_json=1`
+- User: `https://oauth.reddit.com/user/{username}/submitted?sort={sort}&t={timespan}&after={after}&raw_json=1`
 
 **Headers**:
-- `User-Agent`: Custom user agent string to identify the application
+- The local server adds `Authorization: Bearer <token>` and the configured `User-Agent`; the browser sends no auth headers
 
 ### 3. Response Parser
 
@@ -425,13 +435,9 @@ interface SuggestionAPIClient {
 }
 ```
 
-**API Endpoints**:
-- Subreddit search: `https://www.reddit.com/api/search_reddit_names.json?query={query}&include_over_18=false`
-- Username search: `https://www.reddit.com/api/search_reddit_names.json?query={query}&search_query_id=&typeahead_active=true`
-
-Note: Reddit's public API has limited typeahead support. Alternative approach uses:
-- Subreddit search: `https://www.reddit.com/search.json?q={query}&type=sr&limit=10`
-- User search: `https://www.reddit.com/search.json?q={query}&type=user&limit=10`
+**API Endpoints** (requested through `/browser-proxy/`, so they need the user to be logged in; when logged out the proxy returns 401 and no suggestions are shown):
+- Subreddit search: `https://oauth.reddit.com/api/subreddit_autocomplete_v2?query={query}&include_over_18=true&include_profiles=false&limit=10&raw_json=1`
+- User search: `https://oauth.reddit.com/search?q={query}&type=user&limit=10&raw_json=1`
 
 **Request Cancellation**:
 - Uses AbortController to cancel pending requests
@@ -489,8 +495,14 @@ interface PostMetadata {
   title: string;
   author: string;
   postURL: string;
+  subreddit?: string;
+  createdDate?: number;   // created_utc (seconds)
+  score?: number;         // net score (Reddit no longer exposes separate up/down counts)
+  upvoteRatio?: number;   // 0..1
 }
 ```
+
+**Layout**: title link on the first line; the second line shows `r/subreddit • u/author` on the left and `▲ 12.3k 94% · 5h ago` on the right. The score is abbreviated (k/m); hovering shows the exact points, and hovering the age shows dd/mm/yyyy. Subreddit and author links navigate in-app on a plain click, but Ctrl/Cmd/Shift-click and middle-click are left to the browser so they open a new tab/window.
 
 ### 12. Infinite Scroll Manager
 
@@ -538,6 +550,32 @@ interface LoadingIndicator {
   showError(message: string, onRetry: () => void): void;
 }
 ```
+
+### 14. Authentication (server-side OAuth)
+
+**Responsibility**: Logs in to Reddit and supplies access tokens for API requests
+
+**Server (`reddit-auth.js`, routes in `server.js`)**:
+- `POST /auth/login` starts the login (single-flight) and returns immediately; `GET /auth/status` returns `{ configured, authenticated, loginInProgress, lastError }`; `POST /auth/logout` revokes the refresh token and deletes the token file
+- Login opens Chrome (or Playwright's bundled Chromium) with a persistent profile in `.reddit-browser-profile/` at `https://www.reddit.com/api/v1/authorize` with `response_type=code`, `duration=permanent`
+- When the user clicks Allow, Reddit's authorize POST responds with a redirect to the configured redirect URI (RedReader's `redreader://rr_oauth_redir`, which a browser can't hand back). The server intercepts that POST with `context.route`, fetches it with `maxRedirects: 0`, reads the `Location` header, checks `state`, and exchanges the code at `/api/v1/access_token` (Basic auth `clientId:` with an empty secret)
+- The refresh token is stored in `.reddit-oauth.json`; access tokens are refreshed 5 minutes before expiry; an `invalid_grant` on refresh clears the stored login
+- `/browser-proxy/` adds `Authorization: Bearer <token>` only for `https://oauth.reddit.com` URLs and returns 401 when not logged in
+
+**Client (`auth.ts`, `OAuthManager`)**:
+- Fetches `/auth/status` before the first content load, so the first request uses the right API
+- Starts login and polls status every 1.5 s until it finishes; re-checks status when the proxy returns 401
+- `AuthUI` (in `app.ts`) shows Login / "Log in using the Chrome window…" / Logged in + Logout / Login failed
+
+**Configuration (`config.ts`)**: `clientId`, optional `clientSecret`, `redirectUri`, `userAgent`, `scope` (`read history`). Imported by both the browser code and the server.
+
+**Constraints**: Google sign-in is blocked in the automated window, so users sign in with Reddit username/email. The server binds to `127.0.0.1`, refuses dotfiles and paths outside the app folder, checks the `Host` header on API routes, and sends no wildcard CORS header.
+
+### 15. Full-Size Image Viewer
+
+**Responsibility**: Shows a full-size image in a new tab
+
+Reddit redirects top-level navigation to `i.redd.it`/`preview.redd.it` to its own media page, so clicks on Reddit-hosted images open `viewer.html#<encoded image URL>`, which loads the image as an `<img>` (image requests aren't redirected). The viewer only accepts `https:` URLs on Reddit or Imgur hosts and assigns them via `img.src`. Clicking the image toggles between fit-to-screen and natural size. Images on other hosts open directly.
 
 ## Data Models
 
@@ -674,15 +712,19 @@ interface RedditPostData {
 }
 ```
 
-### SessionStorage
+### SessionStorage (preferences)
 
-Stores user preferences during the current session:
+Despite the interface name, preferences are stored in `localStorage` (key `reddit-image-viewer-preferences`) so they carry across tabs and restarts:
 
 ```typescript
 interface SessionStorage {
   columnCount: number;
   showVideos: boolean;
   expandGalleries: boolean;
+  darkMode: boolean;
+  masonryLayout: boolean;
+  sortOrder?: SortOrder;
+  timespan?: Timespan;
 }
 ```
 
@@ -959,7 +1001,7 @@ interface TypeaheadState {
 
 ### Property 41: Images clickable to open in new tab
 
-*For any* image post or gallery image, clicking the image should open the direct image URL in a new browser tab.
+*For any* image post or gallery image, clicking the image should open it in a new browser tab: Reddit-hosted images (`*.redd.it`) via `viewer.html#<encoded URL>`, other hosts via the direct image URL.
 
 **Validates: Requirements 18.1, 18.2, 18.3, 18.4**
 
@@ -2060,7 +2102,11 @@ test('subreddit name validation accepts valid characters', () => {
 - [ ] Toggle video visibility on and off
 - [ ] Toggle gallery expand mode on and off
 - [ ] Change column count from 1 to 6 and verify layout
-- [ ] Click on images to open in new tab
+- [ ] Click on images to open in new tab (Reddit images open in the local viewer, not Reddit's media page)
+- [ ] Ctrl+click / middle-click a subreddit or user link and verify it opens in a new tab with the same sort order
+- [ ] Verify each post shows score, upvote percentage and age
+- [ ] Log in with Reddit (Chrome window, Allow) and verify content loads; restart the server and verify still logged in
+- [ ] Log out and verify the token file is removed
 - [ ] Click on post titles to open Reddit posts
 - [ ] Click on author usernames to navigate to user profiles
 - [ ] Navigate using browser back and forward buttons
@@ -2069,7 +2115,7 @@ test('subreddit name validation accepts valid characters', () => {
 - [ ] Test with username that doesn't exist
 - [ ] Test with subreddit that has no media
 - [ ] Test gallery carousel navigation
-- [ ] Verify session persistence (reload page and check settings)
+- [ ] Verify preference persistence (reload page / open new tab and check settings, including sort order)
 - [ ] Type in search input and verify typeahead dropdown appears
 - [ ] Verify typeahead shows suggestions after 300ms delay
 - [ ] Type rapidly and verify only latest request completes

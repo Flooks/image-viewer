@@ -51,6 +51,9 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 - **Pagination_Token**: The "after" token returned by Reddit API used to fetch the next page of posts
 - **Loading_Indicator**: A visual element displayed at the bottom of the page while fetching more content
 - **Scroll_Position**: The current vertical scroll position of the page
+- **Local_Server**: The Node.js server (`server.js`) that serves the application, proxies Reddit API requests and handles login
+- **OAuth_Login**: The Reddit OAuth authorization that lets the Local_Server call Reddit's API on the user's behalf
+- **Image_Viewer**: The local page (`viewer.html`) that displays a single full-size image
 
 ## Requirements
 
@@ -156,10 +159,11 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 
 1. THE Sort_Interface SHALL provide options for Hot, New, Top, Best, Rising, and Controversial sort orders
 2. WHEN a user selects a Sort_Order, THE Reddit_Image_Viewer SHALL apply that ordering to the Content_Source request
-3. THE Reddit_Image_Viewer SHALL default to Hot sorting when no Sort_Order is explicitly selected
+3. THE Reddit_Image_Viewer SHALL default to Hot sorting when no Sort_Order has ever been selected
 4. WHEN the Sort_Order changes, THE Reddit_Image_Viewer SHALL fetch and display images using the new ordering
 5. WHEN viewing a User_Profile, THE Sort_Interface SHALL support all sort orders available for subreddits
 6. WHEN viewing a Subreddit, THE Sort_Interface SHALL support all sort orders available for subreddits
+7. THE Reddit_Image_Viewer SHALL remember the last selected Sort_Order and Timespan, so that new tabs and later visits open with the same sorting
 
 ### Requirement 8: Timespan Filtering for Top and Controversial
 
@@ -180,8 +184,8 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 
 #### Acceptance Criteria
 
-1. THE API_Client SHALL use the Reddit JSON API endpoint format for both subreddit and user profile requests
-2. THE API_Client SHALL include appropriate headers in API requests
+1. THE API_Client SHALL use Reddit's OAuth API (`oauth.reddit.com`) for both subreddit and user profile requests, sent through the Local_Server
+2. THE Local_Server SHALL add the OAuth access token and an appropriate User-Agent to API requests
 3. THE API_Client SHALL handle Reddit API response formats correctly
 4. THE API_Client SHALL parse Reddit post data structures to extract image URLs and video data
 5. WHEN fetching user profile data, THE API_Client SHALL use the user submitted posts endpoint format
@@ -209,7 +213,7 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 3. WHEN the Toggle_Control is set to show videos, THE Media_Gallery SHALL display both Image_Posts and Video_Posts
 4. THE Reddit_Image_Viewer SHALL default to showing videos when the page loads
 5. WHEN the Toggle_Control state changes, THE Media_Gallery SHALL update the displayed content immediately
-6. THE Toggle_Control SHALL persist the user's preference during the current session
+6. THE Toggle_Control SHALL persist the user's preference across sessions
 
 ### Requirement 12: Gallery Carousel Display
 
@@ -236,7 +240,7 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 3. WHEN the Gallery_Expand_Toggle is set to carousel mode, THE Media_Gallery SHALL display Gallery_Posts using the Gallery_Carousel component
 4. WHEN the Gallery_Expand_Toggle is set to expanded mode, THE Media_Gallery SHALL display all images from each Gallery_Post simultaneously in the grid layout
 5. WHEN the Gallery_Expand_Toggle state changes, THE Media_Gallery SHALL update all Gallery_Post displays immediately
-6. THE Gallery_Expand_Toggle SHALL persist the user's preference during the current session
+6. THE Gallery_Expand_Toggle SHALL persist the user's preference across sessions
 7. WHEN in expanded mode, THE Media_Gallery SHALL display each gallery image with the same styling as single Image_Posts
 
 ### Requirement 14: Gallery Image Loading
@@ -274,7 +278,7 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 2. WHEN a user selects a Column_Count from the dropdown, THE Grid_Layout SHALL update to display the selected number of columns
 3. THE Column_Selector SHALL display the currently active Column_Count
 4. WHEN the Column_Count changes, THE Grid_Layout SHALL rearrange all Media_Items immediately
-5. THE Column_Selector SHALL persist the user's Column_Count preference during the current session
+5. THE Column_Selector SHALL persist the user's Column_Count preference across sessions
 6. THE Grid_Layout SHALL ensure Media_Items expand to fill the available width within each column
 
 ### Requirement 17: Post Metadata Display and Linking
@@ -291,6 +295,9 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 6. WHEN navigating via an Author_Username_Link, THE Reddit_Image_Viewer SHALL switch to user profile mode and load posts from that Reddit_User
 7. THE Metadata_Display SHALL style links to be visually distinguishable as clickable elements
 8. WHEN Post_Metadata is unavailable for a Media_Item, THE Metadata_Display SHALL display a placeholder or omit the missing information
+9. THE Metadata_Display SHALL show the post's score and upvote percentage next to the post age on the author line, without adding extra lines
+10. THE Metadata_Display SHALL show the subreddit as a link that navigates to that Subreddit within the application
+11. WHEN a user Ctrl/Cmd/Shift-clicks or middle-clicks a subreddit or Author_Username_Link, THE Reddit_Image_Viewer SHALL let the browser open it in a new tab or window
 
 ### Requirement 18: Image Click to Open in New Tab
 
@@ -299,7 +306,7 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 #### Acceptance Criteria
 
 1. WHEN a user clicks on an image in the Media_Gallery, THE Reddit_Image_Viewer SHALL open that image in a new browser tab
-2. THE Reddit_Image_Viewer SHALL open the direct image URL in the new tab
+2. THE Reddit_Image_Viewer SHALL show the full-size image in the new tab, using the Image_Viewer for Reddit-hosted images (Reddit redirects direct image links to its own media page) and the direct image URL for other hosts
 3. WHEN a user clicks on an image within a Gallery_Carousel, THE Reddit_Image_Viewer SHALL open the currently displayed gallery image in a new browser tab
 4. WHEN in expanded gallery mode, WHEN a user clicks on any gallery image, THE Reddit_Image_Viewer SHALL open that specific gallery image in a new browser tab
 5. THE Reddit_Image_Viewer SHALL style images to indicate they are clickable elements
@@ -341,3 +348,18 @@ The Reddit Image Viewer is a locally-hosted web application that enables users t
 12. WHEN new content is appended, THE Reddit_Image_Viewer SHALL maintain the user's current Scroll_Position
 13. THE Infinite_Scroll SHALL respect the current video toggle and gallery expand settings when appending new content
 14. IF an error occurs while fetching more content, THEN THE Reddit_Image_Viewer SHALL display an error message at the bottom of the gallery and allow the user to retry
+
+### Requirement 21: Reddit Login
+
+**User Story:** As a user, I want to log in to Reddit once and stay logged in, so that the application can fetch content now that Reddit requires authentication.
+
+#### Acceptance Criteria
+
+1. WHEN a user clicks the login button, THE Local_Server SHALL open a browser window at Reddit's authorization page
+2. WHEN the user approves access, THE Local_Server SHALL complete the OAuth_Login without the user copying any URLs or tokens
+3. THE Local_Server SHALL store a permanent refresh token and refresh access tokens automatically, so the user stays logged in across server restarts
+4. THE Local_Server SHALL keep tokens server-side and never send them to the browser
+5. WHEN a user logs out, THE Local_Server SHALL revoke the token with Reddit and delete it from disk
+6. THE Local_Server SHALL only accept connections from the local machine and SHALL NOT serve token or browser-profile files
+7. WHILE a login is in progress, THE Reddit_Image_Viewer SHALL indicate that the user should complete it in the opened window
+8. IF the login fails, THEN THE Reddit_Image_Viewer SHALL show that it failed and allow the user to retry

@@ -1,5 +1,7 @@
 # OAuth Migration Plan
 
+> **Status: historical.** This plan was implemented, then superseded. Login now runs on the local server (`reddit-auth.js`): it opens a Chrome/Chromium window, intercepts the authorize redirect, and stores a permanent refresh token, so there's no manual token copying and no hourly re-login. The browser no longer holds tokens. The Android wrapper and its proxy (Phase 4) were removed, and `auth.html`, `oauth-intercept.html` and `oauth-redirect.html` no longer exist. See the README and `.kiro/specs/reddit-image-viewer/design.md` (component 14) for the current design.
+
 ## Background
 
 As of May 28, 2026, Reddit has blocked unauthenticated `.json` endpoint access. All requests to `https://www.reddit.com/r/{sub}/hot.json` now return 403 Forbidden. This breaks both the web app and Android wrapper.

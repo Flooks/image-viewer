@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation plan breaks down the Reddit Image Viewer feature into discrete coding tasks. The application is a client-side TypeScript/JavaScript web application that uses Reddit's public JSON API to display images and videos from subreddits and user profiles. The implementation follows a single-page application architecture with client-side routing.
+This implementation plan breaks down the Reddit Image Viewer feature into discrete coding tasks. The application is a client-side TypeScript/JavaScript web application, served by a small local Node.js server that proxies Reddit's OAuth API, to display images and videos from subreddits and user profiles. (It originally used Reddit's public JSON API, which Reddit blocked in May 2026.) The implementation follows a single-page application architecture with client-side routing.
 
 ## Tasks
 
@@ -128,7 +128,7 @@ This implementation plan breaks down the Reddit Image Viewer feature into discre
 
 - [x] 8. Implement Session Storage
   - [x] 8.1 Create session storage utilities
-    - Implement savePreferences to store columnCount, showVideos, expandGalleries
+    - Implement savePreferences to store columnCount, showVideos, expandGalleries (later also darkMode, masonryLayout, sortOrder, timespan, in localStorage)
     - Implement loadPreferences to retrieve stored preferences
     - Integrate with StateManager to persist and restore preferences
     - _Requirements: 11.6, 13.6, 16.5_
@@ -207,8 +207,8 @@ This implementation plan breaks down the Reddit Image Viewer feature into discre
     - Parse API responses to extract SearchSuggestion objects (name, type, subscribers, iconUrl)
     - Handle API errors by returning empty array (fail silently)
     - Limit results to 10 suggestions maximum
-    - API endpoint for subreddits: `https://www.reddit.com/search.json?q={query}&type=sr&limit=10`
-    - API endpoint for users: `https://www.reddit.com/search.json?q={query}&type=user&limit=10`
+    - API endpoint for subreddits: `https://oauth.reddit.com/api/subreddit_autocomplete_v2?query={query}&include_over_18=true&include_profiles=false&limit=10` (via `/browser-proxy/`; originally `www.reddit.com/search.json?type=sr`)
+    - API endpoint for users: `https://oauth.reddit.com/search?q={query}&type=user&limit=10` (via `/browser-proxy/`)
     - _Requirements: 1.1.2, 1.1.4, 1.1.5, 1.1.12, 1.1.13_
   
   - [ ]* 9c.2 Write property tests for suggestion API client
@@ -653,6 +653,26 @@ This implementation plan breaks down the Reddit Image Viewer feature into discre
   - [x] 33.2 Resolve circular dependencies via IMediaGallery/IErrorDisplay interfaces in state.ts
   - [x] 33.3 Update index.html to use type="module" script loading
 
+- [x] 34. Reddit OAuth login (Requirements 9, 21)
+  - [x] 34.1 OAuth config (`config.ts`) and API client switched to `oauth.reddit.com` via `/browser-proxy/`
+  - [x] 34.2 Move the OAuth flow to the server (`reddit-auth.js`): Playwright login window, intercept authorize redirect, code exchange, permanent refresh token in `.reddit-oauth.json`, automatic refresh
+  - [x] 34.3 Proxy adds the bearer token server-side; client `OAuthManager` only tracks status via `/auth/status`
+  - [x] 34.4 Remove the manual token-paste pages (`auth.html`, `oauth-intercept.html`, `oauth-redirect.html`)
+  - [x] 34.5 Harden the server: bind `127.0.0.1`, refuse dotfiles/paths outside the app folder, Host check on API routes, no wildcard CORS
+  - [x] 34.6 Fall back to Playwright's bundled Chromium when Google Chrome isn't installed (Linux)
+  - [x] 34.7 Search suggestions use the OAuth API
+
+- [x] 35. Full-size image viewer (Requirement 18)
+  - [x] 35.1 Add `viewer.html`; open Reddit-hosted images through it because Reddit redirects direct image links to its media page
+
+- [x] 36. Remember sort order and timespan across tabs (Requirement 7.7)
+
+- [x] 37. Let Ctrl/Cmd/Shift-click and middle-click open subreddit/user links in a new tab (Requirement 17.11)
+
+- [x] 38. Show score and upvote percentage in the metadata line (Requirement 17.9)
+
+- [x] 39. Remove the Android WebView wrapper (no longer used)
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP
@@ -660,5 +680,5 @@ This implementation plan breaks down the Reddit Image Viewer feature into discre
 - The implementation uses TypeScript interfaces as defined in the design document
 - Property tests should use the fast-check library with minimum 100 iterations
 - All property tests must include comment tags referencing the design document property number
-- Session storage is used to persist user preferences (column count, video toggle, gallery expand toggle)
-- The application is client-side only and requires no backend server
+- User preferences are persisted in localStorage (column count, toggles, dark mode, masonry, sort order, timespan)
+- The application needs the local Node.js server (`server.js`) for the Reddit proxy and login

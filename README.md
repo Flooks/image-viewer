@@ -9,6 +9,8 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - GIF playback using Reddit's MP4 variants with click-to-play
 - External video embedding (Redgifs) with click-to-play previews
 - Gallery carousel with thumbnail previews and loading indicators
+- Click an image to open it full size in a new tab (local viewer page)
+- Post score and upvote percentage shown next to each post's age
 - Multiple sort options (Hot, New, Top, Best, Rising, Controversial)
 - Timespan filtering for Top and Controversial posts
 - Configurable grid layout (1-6 columns)
@@ -24,8 +26,10 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - Toggle to expand galleries inline
 - Scroll position preservation when toggling options
 - Client-side routing with bookmarkable URLs
-- Session persistence for all user preferences
+- Ctrl/Cmd/Shift-click or middle-click subreddit and user links to open them in a new tab
+- Preferences (columns, toggles, dark mode, sort order and timespan) remembered across tabs and restarts
 - Typeahead search with subreddit/user suggestions
+- Reddit login handled by the local server — log in once and stay logged in
 - Helpful error messages for missing/banned/private content
 
 ## Setup
@@ -35,7 +39,7 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
    npm install
    ```
 
-2. Compile TypeScript:
+2. Compile TypeScript (the compiled `.js` files are committed, so this is only needed after editing `.ts` files):
    ```bash
    npm run build
    ```
@@ -60,6 +64,8 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 
    The login window uses Google Chrome if it's installed, otherwise Playwright's bundled Chromium. On Linux without Chrome, run `npx playwright install chromium` once (a desktop session is needed for the window to appear).
 
+   **Sign in with your Reddit username/email, not "Continue with Google".** Google blocks sign-in from automated browser windows ("This browser or app may not be secure"). Use a password or Reddit's emailed one-time code instead; if your account only has Google sign-in, add a password in Reddit's account settings first.
+
    The server only listens on `127.0.0.1`, so the app is reachable from this machine only.
 
 ## Usage
@@ -76,12 +82,20 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - Subreddit: `#/r/<name>` (e.g. `#/r/pics+art`)
 - User profile: `#/u/<username>`
 
+## Login Notes
+
+- The login is stored in `.reddit-oauth.json` (never committed or served by the server). Treat it like a password.
+- To log in on another machine without the login window, copy `.reddit-oauth.json` into its app folder and restart the server. Both machines then share the login, so **Logout on either one logs out both** (it revokes the token with Reddit).
+- The login window keeps its own browser profile in `.reddit-browser-profile/`, so later logins are usually just a click on **Allow**.
+- Login currently uses RedReader's Reddit client ID because Reddit isn't issuing new app credentials. When you have your own, set `USE_OWN_CREDENTIALS` and the values in `config.ts`, then run `npm run build`.
+- If the server console shows `[Auth]` errors, those lines show which step of the login failed.
+
 ## Project Structure
 
 The application is split into focused ES2020 modules:
 
 - `index.html` — Main HTML entry point
-- `server.js` — Local server: static files, Reddit API proxy, Redgifs proxy
+- `server.js` — Local server: static files, Reddit API proxy (adds the OAuth token), Redgifs proxy
 - `reddit-auth.js` — Server-side Reddit OAuth (login window, token storage and refresh)
 - `config.ts` — OAuth client settings
 - `auth.ts` — OAuthManager (login state in the browser)
@@ -100,5 +114,7 @@ The application is split into focused ES2020 modules:
 
 ## Requirements
 
+- Node.js (for the local server)
 - Modern browser with ES2020 module support
+- Google Chrome, or Chromium via `npx playwright install chromium`, for the one-time login window
 - Internet connection for Reddit API access
