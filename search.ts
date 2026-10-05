@@ -15,8 +15,10 @@ export class DebounceManager {
   }
 }
 
+// Suggestions use Reddit's OAuth API through the local proxy, which adds the login token.
+// When not logged in the proxy returns 401 and we just show no suggestions.
 export class SuggestionAPIClient {
-  private readonly corsProxy = 'https://corsproxy.io/?';
+  private readonly corsProxy = '/browser-proxy/';
   private currentAbortController: AbortController | null = null;
 
   private buildUrl(redditUrl: string): string {
@@ -25,7 +27,7 @@ export class SuggestionAPIClient {
   
   async fetchSubredditSuggestions(query: string, signal?: AbortSignal): Promise<SearchSuggestion[]> {
     try {
-      const redditUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&type=sr&limit=10`;
+      const redditUrl = `https://oauth.reddit.com/api/subreddit_autocomplete_v2?query=${encodeURIComponent(query)}&include_over_18=true&include_profiles=false&limit=10&raw_json=1`;
       const url = this.buildUrl(redditUrl);
       const response = await fetch(url, { method: 'GET', signal });
       if (!response.ok) return [];
@@ -43,7 +45,7 @@ export class SuggestionAPIClient {
 
   async fetchUsernameSuggestions(query: string, signal?: AbortSignal): Promise<SearchSuggestion[]> {
     try {
-      const redditUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&type=user&limit=10`;
+      const redditUrl = `https://oauth.reddit.com/search?q=${encodeURIComponent(query)}&type=user&limit=10&raw_json=1`;
       const url = this.buildUrl(redditUrl);
       const response = await fetch(url, { method: 'GET', signal });
       if (!response.ok) return [];
