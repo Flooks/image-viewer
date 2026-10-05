@@ -74,6 +74,8 @@ export class LoadingIndicator {
 }
 
 const SESSION_STORAGE_KEY = 'reddit-image-viewer-preferences';
+const SORT_ORDERS: SortOrder[] = ['hot', 'new', 'top', 'best', 'rising', 'controversial'];
+const TIMESPANS: Timespan[] = ['hour', 'day', 'week', 'month', 'year', 'all'];
 
 export function savePreferences(preferences: SessionStorage): void {
   try {
@@ -131,6 +133,8 @@ export class StateManager {
       this.state.expandGalleries = preferences.expandGalleries;
       if (preferences.darkMode !== undefined) this.state.darkMode = preferences.darkMode;
       if (preferences.masonryLayout !== undefined) this.state.masonryLayout = preferences.masonryLayout;
+      if (preferences.sortOrder && SORT_ORDERS.includes(preferences.sortOrder)) this.state.sortOrder = preferences.sortOrder;
+      if (preferences.timespan && TIMESPANS.includes(preferences.timespan)) this.state.timespan = preferences.timespan;
     }
   }
   
@@ -138,7 +142,8 @@ export class StateManager {
     savePreferences({
       columnCount: this.state.columnCount, showVideos: this.state.showVideos,
       expandGalleries: this.state.expandGalleries, darkMode: this.state.darkMode,
-      masonryLayout: this.state.masonryLayout
+      masonryLayout: this.state.masonryLayout, sortOrder: this.state.sortOrder,
+      timespan: this.state.timespan
     });
   }
   
@@ -158,12 +163,14 @@ export class StateManager {
   
   async setSortOrder(order: SortOrder): Promise<void> {
     this.state.sortOrder = order;
+    this.savePreferencesToSession();
     if (this.state.contentSource) await this.loadContent();
     else this.notifyStateChange();
   }
   
   async setTimespan(timespan: Timespan): Promise<void> {
     this.state.timespan = timespan;
+    this.savePreferencesToSession();
     if (this.state.contentSource) await this.loadContent();
     else this.notifyStateChange();
   }

@@ -202,6 +202,8 @@ export interface SessionStorage {
   expandGalleries: boolean;
   darkMode: boolean;
   masonryLayout: boolean;
+  sortOrder?: SortOrder;
+  timespan?: Timespan;
 }
 
 // Validation Types
