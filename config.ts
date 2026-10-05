@@ -3,7 +3,9 @@ import { OAuthConfig } from './types.js';
 // Toggle between RedReader credentials and own credentials
 const USE_OWN_CREDENTIALS = false;
 
-// RedReader credentials - works with custom scheme redirect
+// Used by the local server (reddit-auth.js), which runs the OAuth flow.
+
+// RedReader credentials - the server captures the custom scheme redirect
 const REDREADER_CONFIG: OAuthConfig = {
   clientId: 'yH0aTnJEt6qUgGn835B4vg',
   redirectUri: 'redreader://rr_oauth_redir',
@@ -15,7 +17,7 @@ const REDREADER_CONFIG: OAuthConfig = {
 // Get these from https://www.reddit.com/prefs/apps
 const OWN_CONFIG: OAuthConfig = {
   clientId: 'PASTE_YOUR_CLIENT_ID_HERE',
-  redirectUri: 'http://localhost:8000/auth.html',
+  redirectUri: 'http://localhost:8000/auth/callback',
   userAgent: 'web:RedditImageViewer:v1.0 (by /u/YOUR_USERNAME)',
   scope: 'read history'  // read for subreddits, history for user profiles
 };
@@ -27,7 +29,3 @@ export function isOAuthConfigured(): boolean {
   return OAUTH_CONFIG.clientId.length > 0;
 }
 
-// Check if using custom scheme redirect (needs special handling)
-export function isCustomSchemeRedirect(): boolean {
-  return OAUTH_CONFIG.redirectUri.startsWith('redreader://');
-}

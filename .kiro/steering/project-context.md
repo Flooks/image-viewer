@@ -11,13 +11,16 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 ## Architecture
 
 - Client-side SPA using vanilla TypeScript (ES2020 modules, no framework)
-- Uses Reddit's public JSON API (no authentication required)
+- Uses Reddit's OAuth API (`oauth.reddit.com`) via the local server proxy; the server holds the tokens
 - Hash-based client-side routing (`#/r/pics`, `#/u/username`)
 - Local HTTP server for development (`server.js` on port 8000)
 
 ## Project Structure
 
 - `index.html` — entry point, loads `app.js` as ES module
+- `reddit-auth.js` — server-side OAuth: opens Chrome via Playwright for login, captures the redirect, stores a refresh token in `.reddit-oauth.json`
+- `config.ts` — OAuth client settings (also imported by the server as `config.js`)
+- `auth.ts` — OAuthManager: reads login state from `/auth/status`, starts login/logout
 - `viewer.html` — full-size image viewer (Reddit redirects direct image navigation to its own media page)
 - `types.ts` — all interfaces and type aliases
 - `router.ts` — URLRouter (hash-based navigation)
@@ -52,7 +55,9 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - Subreddit endpoint: `https://www.reddit.com/r/{sub}/{sort}.json?t={timespan}&after={token}`
 - User endpoint: `https://www.reddit.com/user/{name}/submitted/{sort}.json?t={timespan}&after={token}`
 - Redgifs videos use a separate API with token-based auth (handled in `api.ts`)
-- No Reddit API key needed — uses public JSON endpoints
+- Logged in: requests go to `oauth.reddit.com` through `/browser-proxy/`, which adds the bearer token server-side
+- Login uses RedReader's client ID (Reddit is not currently issuing new app credentials); switch to own credentials in `config.ts` when available
+- Auth endpoints: `GET /auth/status`, `POST /auth/login`, `POST /auth/logout`
 
 ## When Editing
 

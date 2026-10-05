@@ -3,24 +3,18 @@
 // OAuth Configuration
 export interface OAuthConfig {
   clientId: string;
+  clientSecret?: string;  // empty for "installed app" credentials
   redirectUri: string;
   userAgent: string;
   scope: string;
 }
 
-// OAuth Token
-export interface OAuthToken {
-  accessToken: string;
-  tokenType: string;
-  expiresAt: number;  // Unix timestamp (ms)
-  scope: string;
-}
-
-// Auth State
-export interface AuthState {
-  isAuthenticated: boolean;
-  token: OAuthToken | null;
-  error: string | null;
+// Login state reported by the local server (/auth/status)
+export interface AuthStatus {
+  configured: boolean;
+  authenticated: boolean;
+  loginInProgress: boolean;
+  lastError: string | null;
 }
 
 // Content Source Types

@@ -1,3 +1,6 @@
 node_modules/
 *.log
 .idea/
+.reddit-oauth.json
+.reddit-browser-profile/
+.reddit-session.json

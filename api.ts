@@ -24,7 +24,7 @@ export class APIClient {
 
   private buildUrl(endpoint: string): string {
     // Use oauth.reddit.com for authenticated requests
-    const isOAuth = this.oauthManager?.isAuthenticated();
+    const isOAuth = this.isAuthenticatedMode();
     const baseUrl = isOAuth
       ? 'https://oauth.reddit.com'
       : 'https://www.reddit.com';
@@ -33,25 +33,11 @@ export class APIClient {
     return this.corsProxy + encodeURIComponent(fullUrl);
   }
 
-  private getRequestHeaders(): HeadersInit {
-    const headers: HeadersInit = {};
-
-    if (this.oauthManager?.isAuthenticated()) {
-      const token = this.oauthManager.getAccessToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      headers['User-Agent'] = this.oauthManager.getUserAgent();
-    }
-
-    return headers;
-  }
-
   async fetchSubreddit(
     subreddit: string, sortOrder: SortOrder, timespan?: Timespan, after?: string
   ): Promise<RedditAPIResult> {
     // Build endpoint - no .json suffix needed for oauth.reddit.com
-    const isOAuth = this.oauthManager?.isAuthenticated();
+    const isOAuth = this.isAuthenticatedMode();
     let endpoint = `/r/${subreddit}/${sortOrder}`;
     if (!isOAuth) {
       endpoint += '.json';
@@ -68,10 +54,8 @@ export class APIClient {
     const url = this.buildUrl(endpoint);
     
     try {
-      const response = await fetch(url, { 
-        method: 'GET',
-        headers: this.getRequestHeaders()
-      });
+      const response = await fetch(url, { method: 'GET' });
+      if (response.status === 401) this.oauthManager?.refreshStatus();
       if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       const data: RedditAPIResponse = await response.json();
       return { posts: data.data.children.map(child => child.data), after: data.data.after };
@@ -85,7 +69,7 @@ export class APIClient {
     username: string, sortOrder: SortOrder, timespan?: Timespan, after?: string
   ): Promise<RedditAPIResult> {
     // Build endpoint - no .json suffix needed for oauth.reddit.com
-    const isOAuth = this.oauthManager?.isAuthenticated();
+    const isOAuth = this.isAuthenticatedMode();
     let endpoint = `/user/${username}/submitted`;
     if (!isOAuth) {
       endpoint += '.json';
@@ -102,10 +86,8 @@ export class APIClient {
     const url = this.buildUrl(endpoint);
     
     try {
-      const response = await fetch(url, { 
-        method: 'GET',
-        headers: this.getRequestHeaders()
-      });
+      const response = await fetch(url, { method: 'GET' });
+      if (response.status === 401) this.oauthManager?.refreshStatus();
       if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       const data: RedditAPIResponse = await response.json();
       return { posts: data.data.children.map(child => child.data), after: data.data.after };

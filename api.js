@@ -17,27 +17,16 @@ export class APIClient {
     }
     buildUrl(endpoint) {
         // Use oauth.reddit.com for authenticated requests
-        const isOAuth = this.oauthManager?.isAuthenticated();
+        const isOAuth = this.isAuthenticatedMode();
         const baseUrl = isOAuth
             ? 'https://oauth.reddit.com'
             : 'https://www.reddit.com';
         const fullUrl = `${baseUrl}${endpoint}`;
         return this.corsProxy + encodeURIComponent(fullUrl);
     }
-    getRequestHeaders() {
-        const headers = {};
-        if (this.oauthManager?.isAuthenticated()) {
-            const token = this.oauthManager.getAccessToken();
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-            headers['User-Agent'] = this.oauthManager.getUserAgent();
-        }
-        return headers;
-    }
     async fetchSubreddit(subreddit, sortOrder, timespan, after) {
         // Build endpoint - no .json suffix needed for oauth.reddit.com
-        const isOAuth = this.oauthManager?.isAuthenticated();
+        const isOAuth = this.isAuthenticatedMode();
         let endpoint = `/r/${subreddit}/${sortOrder}`;
         if (!isOAuth) {
             endpoint += '.json';
@@ -54,10 +43,9 @@ export class APIClient {
             endpoint += `?${queryString}`;
         const url = this.buildUrl(endpoint);
         try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: this.getRequestHeaders()
-            });
+            const response = await fetch(url, { method: 'GET' });
+            if (response.status === 401)
+                this.oauthManager?.refreshStatus();
             if (!response.ok)
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             const data = await response.json();
@@ -71,7 +59,7 @@ export class APIClient {
     }
     async fetchUserPosts(username, sortOrder, timespan, after) {
         // Build endpoint - no .json suffix needed for oauth.reddit.com
-        const isOAuth = this.oauthManager?.isAuthenticated();
+        const isOAuth = this.isAuthenticatedMode();
         let endpoint = `/user/${username}/submitted`;
         if (!isOAuth) {
             endpoint += '.json';
@@ -87,10 +75,9 @@ export class APIClient {
         endpoint += `?${params.toString()}`;
         const url = this.buildUrl(endpoint);
         try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: this.getRequestHeaders()
-            });
+            const response = await fetch(url, { method: 'GET' });
+            if (response.status === 401)
+                this.oauthManager?.refreshStatus();
             if (!response.ok)
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             const data = await response.json();

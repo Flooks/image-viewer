@@ -2,6 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getAuthStatus, getAccessToken, getUserAgent, startLogin, logout } from './reddit-auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 8000;
@@ -53,7 +54,35 @@ async function getRedgifsToken() {
   return redgifsToken;
 }
 
+const ALLOWED_HOSTS = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`]);
+
+function sendJson(res, status, data) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data));
+}
+
 const server = http.createServer(async (req, res) => {
+  // Only serve the API to this machine's own pages (blocks DNS-rebinding tricks)
+  const isApiRequest = req.url.startsWith('/browser-proxy/') || req.url.startsWith('/auth/');
+  if (isApiRequest && !ALLOWED_HOSTS.has(req.headers.host)) {
+    res.writeHead(403); res.end('Forbidden'); return;
+  }
+
+  // OAuth endpoints (see reddit-auth.js)
+  if (req.url === '/auth/status' && req.method === 'GET') {
+    sendJson(res, 200, getAuthStatus());
+    return;
+  }
+  if (req.url === '/auth/login' && req.method === 'POST') {
+    startLogin();
+    sendJson(res, 202, getAuthStatus());
+    return;
+  }
+  if (req.url === '/auth/logout' && req.method === 'POST') {
+    await logout();
+    sendJson(res, 200, getAuthStatus());
+    return;
+  }
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
@@ -66,16 +95,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Reddit API proxy — forwards OAuth Authorization header if present
+  // Reddit API proxy — adds the server's OAuth token for oauth.reddit.com requests
   if (req.url.startsWith('/browser-proxy/')) {
     const encoded = req.url.replace('/browser-proxy/', '');
     const redditUrl = decodeURIComponent(encoded);
-    
-    // Check if this is an OAuth request (client sends Authorization header)
-    const clientAuthHeader = req.headers['authorization'];
-    const clientUserAgent = req.headers['user-agent'];
-    const isOAuthRequest = clientAuthHeader && clientAuthHeader.startsWith('Bearer ');
-    
+
+    let parsedUrl;
+    try { parsedUrl = new URL(redditUrl); } catch { sendJson(res, 400, { error: 'Invalid URL' }); return; }
+    const isOAuthRequest = parsedUrl.protocol === 'https:' && parsedUrl.hostname === 'oauth.reddit.com';
+
     try {
       const headers = {
         'Accept': 'application/json, text/html;q=0.9, */*;q=0.8',
@@ -83,9 +111,10 @@ const server = http.createServer(async (req, res) => {
       };
       
       if (isOAuthRequest) {
-        // OAuth mode: forward the Authorization header and use the client's User-Agent
-        headers['Authorization'] = clientAuthHeader;
-        headers['User-Agent'] = clientUserAgent || 'RedditImageViewer/1.0';
+        const token = await getAccessToken().catch(() => null);
+        if (!token) { sendJson(res, 401, { error: 'Not logged in to Reddit' }); return; }
+        headers['Authorization'] = `Bearer ${token}`;
+        headers['User-Agent'] = getUserAgent();
         console.log(`[OAuth Proxy] ${redditUrl}`);
       } else {
         // Legacy mode: use browser cookies
@@ -100,8 +129,7 @@ const server = http.createServer(async (req, res) => {
       });
       const body = await redditResp.text();
       res.writeHead(redditResp.status, {
-        'Content-Type': redditResp.headers.get('content-type') || 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Content-Type': redditResp.headers.get('content-type') || 'application/json'
       });
       res.end(body);
     } catch (err) {
@@ -188,8 +216,18 @@ const server = http.createServer(async (req, res) => {
   // Static file serving
   let filePath = req.url.split('?')[0];
   if (filePath === '/') filePath = '/index.html';
-  const fullPath = path.join(__dirname, filePath);
+  try { filePath = decodeURIComponent(filePath); } catch { filePath = ''; }
+  const fullPath = path.resolve(__dirname, '.' + filePath);
   const ext = path.extname(fullPath);
+  const relative = path.relative(__dirname, fullPath);
+
+  // Never serve files outside the app folder or dotfiles (token/session files, browser profile)
+  if (!filePath || relative.startsWith('..') || path.isAbsolute(relative) ||
+      relative.split(path.sep).some(part => part.startsWith('.') || part === 'node_modules')) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+    return;
+  }
 
   try {
     const content = fs.readFileSync(fullPath);
@@ -201,4 +239,4 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+server.listen(PORT, '127.0.0.1', () => console.log(`Server running at http://localhost:${PORT}`));

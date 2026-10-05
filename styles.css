@@ -1381,6 +1381,11 @@ body.dark-mode .media-item.vs-placeholder {
   cursor: help;
 }
 
+.auth-status.auth-pending {
+  color: #0079d3;
+  background-color: rgba(0, 121, 211, 0.1);
+}
+
 /* Dark mode auth styles */
 body.dark-mode .auth-button.auth-logout {
   color: #818384;
@@ -1395,6 +1400,11 @@ body.dark-mode .auth-button.auth-logout:hover {
 body.dark-mode .auth-status.auth-logged-in {
   color: #46d160;
   background-color: rgba(70, 209, 96, 0.15);
+}
+
+body.dark-mode .auth-status.auth-pending {
+  color: #4fbcff;
+  background-color: rgba(79, 188, 255, 0.15);
 }
 
 body.dark-mode .auth-status.auth-not-configured {

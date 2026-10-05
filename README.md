@@ -56,6 +56,12 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 
 4. Open `http://localhost:8000`
 
+5. Click **Login with Reddit**. A Chrome window opens at Reddit's authorization page: log in if asked and click **Allow**. The window closes by itself and you stay logged in — the server keeps a permanent refresh token in `.reddit-oauth.json` and renews access automatically. You only need to do this once.
+
+   The login window uses Google Chrome if it's installed, otherwise Playwright's bundled Chromium. On Linux without Chrome, run `npx playwright install chromium` once (a desktop session is needed for the window to appear).
+
+   The server only listens on `127.0.0.1`, so the app is reachable from this machine only.
+
 ## Usage
 
 - Enter a subreddit name (e.g. `pics`) or combine multiple with `+` (e.g. `pics+art`)
@@ -75,6 +81,10 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 The application is split into focused ES2020 modules:
 
 - `index.html` — Main HTML entry point
+- `server.js` — Local server: static files, Reddit API proxy, Redgifs proxy
+- `reddit-auth.js` — Server-side Reddit OAuth (login window, token storage and refresh)
+- `config.ts` — OAuth client settings
+- `auth.ts` — OAuthManager (login state in the browser)
 - `viewer.html` — Full-size image viewer opened when clicking an image
 - `types.ts` — All interfaces and type aliases
 - `router.ts` — URLRouter class (hash-based navigation)
