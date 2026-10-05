@@ -1,8 +1,7 @@
 export class APIClient {
     constructor() {
+        this.corsProxy = '/browser-proxy/';
         this.oauthManager = null;
-        this.isAndroid = window.location.hostname === 'appassets.androidplatform.net';
-        this.corsProxy = this.isAndroid ? '' : '/browser-proxy/';
     }
     /**
      * Set the OAuth manager for authenticated requests
@@ -23,12 +22,6 @@ export class APIClient {
             ? 'https://oauth.reddit.com'
             : 'https://www.reddit.com';
         const fullUrl = `${baseUrl}${endpoint}`;
-        if (this.isAndroid) {
-            const parsed = new URL(fullUrl);
-            // For Android, prefix OAuth requests with 'oauth/' so the proxy knows to route them differently
-            const pathPrefix = isOAuth ? '/reddit-api/oauth' : '/reddit-api';
-            return `https://appassets.androidplatform.net${pathPrefix}${parsed.pathname}${parsed.search}`;
-        }
         return this.corsProxy + encodeURIComponent(fullUrl);
     }
     getRequestHeaders() {

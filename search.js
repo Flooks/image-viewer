@@ -16,15 +16,10 @@ export class DebounceManager {
 }
 export class SuggestionAPIClient {
     constructor() {
+        this.corsProxy = 'https://corsproxy.io/?';
         this.currentAbortController = null;
-        this.isAndroid = window.location.hostname === 'appassets.androidplatform.net';
-        this.corsProxy = this.isAndroid ? '' : 'https://corsproxy.io/?';
     }
     buildUrl(redditUrl) {
-        if (this.isAndroid) {
-            const parsed = new URL(redditUrl);
-            return `https://appassets.androidplatform.net/reddit-api${parsed.pathname}${parsed.search}`;
-        }
         return this.corsProxy + encodeURIComponent(redditUrl);
     }
     async fetchSubredditSuggestions(query, signal) {

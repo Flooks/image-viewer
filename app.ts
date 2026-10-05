@@ -84,8 +84,6 @@ class AuthUI {
 }
 
 function initializeApplication(): void {
-  const isAndroid = window.location.hostname === 'appassets.androidplatform.net';
-  
   // Initialize OAuth
   const oauthManager = new OAuthManager(OAUTH_CONFIG);
   setupOAuthPopupListener(oauthManager);
@@ -106,14 +104,6 @@ function initializeApplication(): void {
   const responseParser = new ResponseParser();
   const router = new URLRouter();
   const stateManager = new StateManager(apiClient, responseParser, router);
-
-  // Android-specific defaults: 1 column, dark mode on, masonry off
-  if (isAndroid) {
-    document.body.classList.add('android-app');
-    stateManager.setColumnCount(1);
-    stateManager.setDarkMode(true);
-    stateManager.setMasonryLayout(false);
-  }
 
   // Auth UI
   const authUI = new AuthUI(oauthManager, () => {
@@ -148,12 +138,10 @@ function initializeApplication(): void {
   const sortContainer = document.getElementById('sort-container');
   if (sortContainer) sortContainer.appendChild(sortInterface.render());
 
-  // Column selector (hidden on Android - always 1 column)
-  if (!isAndroid) {
-    const columnSelector = new ColumnSelector(stateManager);
-    const columnSelectorContainer = document.getElementById('column-selector-container');
-    if (columnSelectorContainer) columnSelectorContainer.appendChild(columnSelector.render());
-  }
+  // Column selector
+  const columnSelector = new ColumnSelector(stateManager);
+  const columnSelectorContainer = document.getElementById('column-selector-container');
+  if (columnSelectorContainer) columnSelectorContainer.appendChild(columnSelector.render());
 
   // Toggles
   const videoToggle = new VideoToggle(stateManager);
@@ -164,20 +152,16 @@ function initializeApplication(): void {
   const galleryToggleContainer = document.getElementById('gallery-toggle-container');
   if (galleryToggleContainer) galleryToggleContainer.appendChild(galleryExpandToggle.render());
 
-  // Dark mode toggle (hidden on Android - always dark)
-  if (!isAndroid) {
-    const darkModeToggle = new DarkModeToggle(stateManager);
-    const darkModeContainer = document.getElementById('dark-mode-toggle-container');
-    if (darkModeContainer) darkModeContainer.appendChild(darkModeToggle.render());
-  }
+  // Dark mode toggle
+  const darkModeToggle = new DarkModeToggle(stateManager);
+  const darkModeContainer = document.getElementById('dark-mode-toggle-container');
+  if (darkModeContainer) darkModeContainer.appendChild(darkModeToggle.render());
   if (stateManager.getState().darkMode) document.body.classList.add('dark-mode');
 
-  // Layout toggle (hidden on Android - always single column, no masonry)
-  if (!isAndroid) {
-    const layoutToggle = new LayoutToggle(stateManager);
-    const layoutToggleContainer = document.getElementById('layout-toggle-container');
-    if (layoutToggleContainer) layoutToggleContainer.appendChild(layoutToggle.render());
-  }
+  // Layout toggle
+  const layoutToggle = new LayoutToggle(stateManager);
+  const layoutToggleContainer = document.getElementById('layout-toggle-container');
+  if (layoutToggleContainer) layoutToggleContainer.appendChild(layoutToggle.render());
 
   // Infinite scroll
   const loadingIndicator = new LoadingIndicator();

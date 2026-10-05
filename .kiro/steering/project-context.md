@@ -6,7 +6,7 @@ inclusion: always
 
 ## What This Is
 
-A locally-hosted web application for browsing images, GIFs, and videos from Reddit subreddits and user profiles. It also has an Android WebView wrapper for mobile use.
+A locally-hosted web application for browsing images, GIFs, and videos from Reddit subreddits and user profiles.
 
 ## Architecture
 
@@ -14,11 +14,11 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - Uses Reddit's public JSON API (no authentication required)
 - Hash-based client-side routing (`#/r/pics`, `#/u/username`)
 - Local HTTP server for development (`server.js` on port 8000)
-- Android wrapper at `android/` loads the web app from bundled assets
 
 ## Project Structure
 
 - `index.html` — entry point, loads `app.js` as ES module
+- `viewer.html` — full-size image viewer (Reddit redirects direct image navigation to its own media page)
 - `types.ts` — all interfaces and type aliases
 - `router.ts` — URLRouter (hash-based navigation)
 - `validation.ts` — input validation for subreddit/usernames
@@ -31,7 +31,6 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - `app.ts` — bootstrap and initialization
 - `styles.css` — all styling
 - `server.js` — local dev server (Node.js, port 8000)
-- `android/` — Android WebView wrapper project (Java, Gradle)
 
 ## Key Conventions
 
@@ -48,22 +47,6 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - `start-server.bat` / `start-server.sh` — start local server on port 8000
 - Open `http://localhost:8000`
 
-## Android Wrapper
-
-- Located at `android/`
-- App name: "Viewer"
-- `android/copy-web-assets.bat` (Windows) or `android/copy-web-assets.sh` (Linux/Mac) — compiles TS and copies web files to `android/app/src/main/assets/web/`
-- WebView configured with: JS enabled, DOM storage, inline video playback, no autoplay gesture requirement
-- Web assets served via `WebViewAssetLoader` over `https://appassets.androidplatform.net` (required for ES modules)
-- Reddit API requests proxied through Java `shouldInterceptRequest` to bypass CORS
-- Android-specific UI: single column, dark mode default, compact header, tap-to-cycle sort buttons
-- Android detection in JS: `window.location.hostname === 'appassets.androidplatform.net'`
-- Android CSS scoped under `body.android-app` class
-- Biometric/PIN lock on app resume via `BiometricPrompt`
-- `FLAG_SECURE` hides content in app switcher
-- External links open in system browser
-- Open `android/` in Android Studio to build and deploy
-
 ## Reddit API Details
 
 - Subreddit endpoint: `https://www.reddit.com/r/{sub}/{sort}.json?t={timespan}&after={token}`
@@ -74,9 +57,7 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 ## When Editing
 
 - After changing any `.ts` file, run `npm run build` to recompile
-- After changing web files that go into the Android app, run the copy-web-assets script
 - Bump the `?v=` cache-busting param in `index.html` if changing `app.js` or `styles.css`
-- The Android `index.html` copy has cache-busting params stripped automatically by the copy script
 
 ## Keeping Documentation in Sync
 
