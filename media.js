@@ -11,6 +11,10 @@ function openFullImage(imageURL) {
     const target = /(^|\.)redd\.it$/i.test(host) ? `viewer.html#${encodeURIComponent(imageURL)}` : imageURL;
     window.open(target, '_blank', 'noopener,noreferrer');
 }
+// Let the browser handle Ctrl/Cmd/Shift-click so links can open in a new tab or window.
+function isNewTabClick(e) {
+    return e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0;
+}
 export class MetadataDisplay {
     constructor(stateManager) { this.stateManager = stateManager; }
     render(metadata) {
@@ -43,6 +47,8 @@ export class MetadataDisplay {
             subredditLink.href = `#/r/${metadata.subreddit}`;
             subredditLink.textContent = `r/${metadata.subreddit}`;
             subredditLink.addEventListener('click', (e) => {
+                if (isNewTabClick(e))
+                    return;
                 e.preventDefault();
                 this.stateManager.setContentSource({ type: 'subreddit', name: metadata.subreddit });
             });
@@ -56,6 +62,8 @@ export class MetadataDisplay {
             authorLink.href = `#/u/${metadata.author}`;
             authorLink.textContent = `u/${metadata.author}`;
             authorLink.addEventListener('click', (e) => {
+                if (isNewTabClick(e))
+                    return;
                 e.preventDefault();
                 this.stateManager.setContentSource({ type: 'user', username: metadata.author });
             });

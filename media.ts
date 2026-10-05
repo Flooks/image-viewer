@@ -15,6 +15,11 @@ function openFullImage(imageURL: string): void {
   window.open(target, '_blank', 'noopener,noreferrer');
 }
 
+// Let the browser handle Ctrl/Cmd/Shift-click so links can open in a new tab or window.
+function isNewTabClick(e: MouseEvent): boolean {
+  return e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0;
+}
+
 export class MetadataDisplay {
   private stateManager: StateManager;
   
@@ -53,6 +58,7 @@ export class MetadataDisplay {
       subredditLink.href = `#/r/${metadata.subreddit}`;
       subredditLink.textContent = `r/${metadata.subreddit}`;
       subredditLink.addEventListener('click', (e) => {
+        if (isNewTabClick(e)) return;
         e.preventDefault();
         this.stateManager.setContentSource({ type: 'subreddit', name: metadata.subreddit! });
       });
@@ -66,6 +72,7 @@ export class MetadataDisplay {
       authorLink.href = `#/u/${metadata.author}`;
       authorLink.textContent = `u/${metadata.author}`;
       authorLink.addEventListener('click', (e) => {
+        if (isNewTabClick(e)) return;
         e.preventDefault();
         this.stateManager.setContentSource({ type: 'user', username: metadata.author });
       });
