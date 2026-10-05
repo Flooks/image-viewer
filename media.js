@@ -1,5 +1,12 @@
 import { VirtualScrollManager } from './scroll.js';
 import { RedgifsClient } from './api.js';
+// Reddit redirects direct browser navigation to i.redd.it/preview.redd.it to its
+// own media page, so on the web we show full-size images via a local viewer page.
+function openFullImage(imageURL) {
+    const isAndroid = window.location.hostname === 'appassets.androidplatform.net';
+    const target = isAndroid ? imageURL : `viewer.html#${encodeURIComponent(imageURL)}`;
+    window.open(target, '_blank', 'noopener,noreferrer');
+}
 export class MetadataDisplay {
     constructor(stateManager) { this.stateManager = stateManager; }
     render(metadata) {
@@ -188,7 +195,7 @@ export class GalleryCarousel {
         errorPlaceholder.style.display = 'flex';
     }
     openCurrentImageInNewTab() {
-        window.open(this.galleryData.images[this.currentIndex], '_blank', 'noopener,noreferrer');
+        openFullImage(this.galleryData.images[this.currentIndex]);
     }
 }
 export class VideoPlayer {
@@ -616,7 +623,7 @@ export class MediaGallery {
             image.alt = post.metadata.title || 'Reddit image';
             image.style.cursor = 'pointer';
             image.loading = 'lazy';
-            image.addEventListener('click', () => window.open(post.url, '_blank', 'noopener,noreferrer'));
+            image.addEventListener('click', () => openFullImage(post.url));
             image.addEventListener('error', () => this.handleImageLoadError(imageContainer, image));
             image.src = post.thumbnailUrl || post.url;
             imageContainer.appendChild(image);
@@ -634,7 +641,7 @@ export class MediaGallery {
             image.alt = `${post.metadata.title || 'Gallery image'} - Image ${index + 1}`;
             image.style.cursor = 'pointer';
             image.loading = 'lazy';
-            image.addEventListener('click', () => window.open(imageURL, '_blank', 'noopener,noreferrer'));
+            image.addEventListener('click', () => openFullImage(imageURL));
             image.addEventListener('error', () => this.handleImageLoadError(imageWrapper, image));
             image.src = imageURL;
             imageWrapper.appendChild(image);

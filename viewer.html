@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Viewer</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; }
+    body { display: flex; align-items: center; justify-content: center; }
+    img { max-width: 100vw; max-height: 100vh; object-fit: contain; cursor: zoom-in; }
+    img.natural { max-width: none; max-height: none; cursor: zoom-out; }
+    body.natural { display: block; overflow: auto; }
+    .error { color: #ccc; font-family: sans-serif; }
+  </style>
+</head>
+<body>
+  <script>
+    // Opening Reddit image URLs directly redirects to Reddit's media page,
+    // so we load the image as an <img> here instead.
+    (function () {
+      var allowedHosts = /(^|\.)(redd\.it|reddit\.com|redditmedia\.com|imgur\.com)$/i;
+      var src = '';
+      try { src = decodeURIComponent(location.hash.slice(1)); } catch (e) { /* invalid encoding */ }
+      var url = null;
+      try { url = new URL(src); } catch (e) { /* invalid URL */ }
+
+      if (!url || url.protocol !== 'https:' || !allowedHosts.test(url.hostname)) {
+        var msg = document.createElement('p');
+        msg.className = 'error';
+        msg.textContent = 'Invalid image URL';
+        document.body.appendChild(msg);
+        return;
+      }
+
+      var img = document.createElement('img');
+      img.alt = 'Full size image';
+      img.referrerPolicy = 'no-referrer';
+      img.src = url.href;
+      img.addEventListener('click', function () {
+        img.classList.toggle('natural');
+        document.body.classList.toggle('natural');
+      });
+      document.body.appendChild(img);
+    })();
+  </script>
+</body>
+</html>
