@@ -100,7 +100,9 @@ export class ResponseParser {
                 author: postData.author,
                 postURL: `https://www.reddit.com${postData.permalink}`,
                 subreddit: postData.subreddit,
-                createdDate: postData.created_utc
+                createdDate: postData.created_utc,
+                score: postData.score,
+                upvoteRatio: postData.upvote_ratio
             };
             const galleryData = this.extractGalleryData(postData);
             if (galleryData) {

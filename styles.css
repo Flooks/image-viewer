@@ -832,10 +832,20 @@ main {
   align-items: center;
 }
 
+.metadata-display .post-meta-right {
+  color: #888;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .metadata-display .post-date {
   color: #888;
   font-size: 11px;
   white-space: nowrap;
+}
+
+.metadata-display .post-score {
+  cursor: default;
 }
 
 .metadata-display .author-username-link {

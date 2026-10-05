@@ -33,6 +33,8 @@ export interface PostMetadata {
   postURL: string;
   subreddit?: string;
   createdDate?: number;
+  score?: number;
+  upvoteRatio?: number;
 }
 
 export interface VideoData {
@@ -132,6 +134,8 @@ export interface RedditPostData {
   subreddit?: string;
   domain?: string;
   created_utc?: number;
+  score?: number;
+  upvote_ratio?: number;
   post_hint?: string;
   is_video?: boolean;
   media?: {

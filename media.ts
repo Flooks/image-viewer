@@ -15,6 +15,15 @@ function openFullImage(imageURL: string): void {
   window.open(target, '_blank', 'noopener,noreferrer');
 }
 
+// 847 -> "847", 12345 -> "12.3k", 1234567 -> "1.2m"
+function formatScore(score: number): string {
+  const abs = Math.abs(score);
+  const sign = score < 0 ? '-' : '';
+  if (abs >= 999_950) return `${sign}${(abs / 1_000_000).toFixed(1).replace(/\.0$/, '')}m`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(score);
+}
+
 // Let the browser handle Ctrl/Cmd/Shift-click so links can open in a new tab or window.
 function isNewTabClick(e: MouseEvent): boolean {
   return e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0;
@@ -83,7 +92,20 @@ export class MetadataDisplay {
     }
     
     authorContainer.appendChild(authorLeft);
-    
+
+    const authorRight = document.createElement('span');
+    authorRight.className = 'post-meta-right';
+
+    if (metadata.score !== undefined) {
+      const scoreSpan = document.createElement('span');
+      scoreSpan.className = 'post-score';
+      const ratio = metadata.upvoteRatio !== undefined ? ` ${Math.round(metadata.upvoteRatio * 100)}%` : '';
+      scoreSpan.textContent = `▲ ${formatScore(metadata.score)}${ratio}`;
+      const points = `${metadata.score.toLocaleString()} ${Math.abs(metadata.score) === 1 ? 'point' : 'points'}`;
+      scoreSpan.title = ratio ? `${points} ·${ratio} upvoted` : points;
+      authorRight.appendChild(scoreSpan);
+    }
+
     if (metadata.createdDate) {
       const date = new Date(metadata.createdDate * 1000);
       const dd = String(date.getDate()).padStart(2, '0');
@@ -106,8 +128,11 @@ export class MetadataDisplay {
       dateSpan.className = 'post-date';
       dateSpan.textContent = relative;
       dateSpan.title = `${dd}/${mm}/${yyyy}`;
-      authorContainer.appendChild(dateSpan);
+      if (authorRight.hasChildNodes()) authorRight.appendChild(document.createTextNode(' · '));
+      authorRight.appendChild(dateSpan);
     }
+
+    if (authorRight.hasChildNodes()) authorContainer.appendChild(authorRight);
     
     container.appendChild(authorContainer);
     return container;
