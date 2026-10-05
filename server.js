@@ -7,31 +7,6 @@ import { getAuthStatus, getAccessToken, getUserAgent, startLogin, logout } from 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 8000;
 
-const SESSION_FILE = path.join(__dirname, '.reddit-session.json');
-
-// Load Reddit session cookies from file (created by reddit-login.cjs)
-function loadRedditCookies() {
-  try {
-    if (fs.existsSync(SESSION_FILE)) {
-      const cookies = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
-      return cookies.map(c => `${c.name}=${c.value}`).join('; ');
-    }
-  } catch (e) {
-    console.warn('Warning: Could not load Reddit session cookies:', e.message);
-  }
-  // Fallback to env var
-  if (process.env.REDDIT_SESSION) {
-    return `reddit_session=${process.env.REDDIT_SESSION}`;
-  }
-  console.warn('Warning: No Reddit session found. Run "node reddit-login.cjs" to authenticate.');
-  return '';
-}
-
-let redditCookieString = loadRedditCookies();
-
-// Reload cookies periodically (in case user re-runs login script)
-setInterval(() => { redditCookieString = loadRedditCookies(); }, 60000);
-
 const MIME_TYPES = {
   '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
   '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -102,27 +77,21 @@ const server = http.createServer(async (req, res) => {
 
     let parsedUrl;
     try { parsedUrl = new URL(redditUrl); } catch { sendJson(res, 400, { error: 'Invalid URL' }); return; }
-    const isOAuthRequest = parsedUrl.protocol === 'https:' && parsedUrl.hostname === 'oauth.reddit.com';
+    if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== 'oauth.reddit.com') {
+      sendJson(res, 400, { error: 'Only oauth.reddit.com requests are proxied' }); return;
+    }
 
     try {
+      const token = await getAccessToken().catch(() => null);
+      if (!token) { sendJson(res, 401, { error: 'Not logged in to Reddit' }); return; }
       const headers = {
-        'Accept': 'application/json, text/html;q=0.9, */*;q=0.8',
+        'Accept': 'application/json',
         'Accept-Language': 'en-US,en;q=0.5',
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': getUserAgent()
       };
-      
-      if (isOAuthRequest) {
-        const token = await getAccessToken().catch(() => null);
-        if (!token) { sendJson(res, 401, { error: 'Not logged in to Reddit' }); return; }
-        headers['Authorization'] = `Bearer ${token}`;
-        headers['User-Agent'] = getUserAgent();
-        console.log(`[OAuth Proxy] ${redditUrl}`);
-      } else {
-        // Legacy mode: use browser cookies
-        headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
-        headers['Cookie'] = redditCookieString;
-        console.log(`[Cookie Proxy] ${redditUrl}`);
-      }
-      
+      console.log(`[OAuth Proxy] ${redditUrl}`);
+
       const redditResp = await fetch(redditUrl, {
         headers,
         redirect: 'follow'

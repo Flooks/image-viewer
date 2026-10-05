@@ -34,7 +34,6 @@ A locally-hosted web application for browsing images, GIFs, and videos from Redd
 - `app.ts` — bootstrap and initialization
 - `styles.css` — all styling
 - `server.js` — local server (Node.js, `127.0.0.1:8000`): static files, `/browser-proxy/` Reddit proxy, `/auth/*` endpoints, Redgifs proxy
-- `reddit-login.cjs` — legacy cookie-capture login; the cookie path in `server.js` only serves `www.reddit.com` requests, which Reddit blocked in May 2026
 
 ## Key Conventions
 

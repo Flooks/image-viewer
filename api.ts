@@ -15,41 +15,22 @@ export class APIClient {
     this.oauthManager = oauthManager;
   }
 
-  /**
-   * Check if the client is configured for authenticated requests
-   */
-  isAuthenticatedMode(): boolean {
-    return this.oauthManager !== null && this.oauthManager.isAuthenticated();
-  }
-
+  // All requests go to oauth.reddit.com via the local proxy, which adds the login token.
+  // (Reddit blocked the unauthenticated www.reddit.com .json endpoints in May 2026.)
   private buildUrl(endpoint: string): string {
-    // Use oauth.reddit.com for authenticated requests
-    const isOAuth = this.isAuthenticatedMode();
-    const baseUrl = isOAuth
-      ? 'https://oauth.reddit.com'
-      : 'https://www.reddit.com';
-    
-    const fullUrl = `${baseUrl}${endpoint}`;
-    return this.corsProxy + encodeURIComponent(fullUrl);
+    return this.corsProxy + encodeURIComponent(`https://oauth.reddit.com${endpoint}`);
   }
 
   async fetchSubreddit(
     subreddit: string, sortOrder: SortOrder, timespan?: Timespan, after?: string
   ): Promise<RedditAPIResult> {
-    // Build endpoint - no .json suffix needed for oauth.reddit.com
-    const isOAuth = this.isAuthenticatedMode();
     let endpoint = `/r/${subreddit}/${sortOrder}`;
-    if (!isOAuth) {
-      endpoint += '.json';
-    }
 
     const params = new URLSearchParams();
     if (timespan) params.append('t', timespan);
     if (after) params.append('after', after);
-    if (isOAuth) params.append('raw_json', '1'); // Prevent HTML entity encoding
-    
-    const queryString = params.toString();
-    if (queryString) endpoint += `?${queryString}`;
+    params.append('raw_json', '1'); // Prevent HTML entity encoding
+    endpoint += `?${params.toString()}`;
     
     const url = this.buildUrl(endpoint);
     
@@ -68,19 +49,14 @@ export class APIClient {
   async fetchUserPosts(
     username: string, sortOrder: SortOrder, timespan?: Timespan, after?: string
   ): Promise<RedditAPIResult> {
-    // Build endpoint - no .json suffix needed for oauth.reddit.com
-    const isOAuth = this.isAuthenticatedMode();
     let endpoint = `/user/${username}/submitted`;
-    if (!isOAuth) {
-      endpoint += '.json';
-    }
 
     const params = new URLSearchParams();
     params.append('sort', sortOrder);
     if (timespan) params.append('t', timespan);
     if (after) params.append('after', after);
-    if (isOAuth) params.append('raw_json', '1');
-    
+    params.append('raw_json', '1');
+
     endpoint += `?${params.toString()}`;
     
     const url = this.buildUrl(endpoint);

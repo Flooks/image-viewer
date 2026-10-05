@@ -263,7 +263,9 @@ export class StateManager {
       this.state.isLoading = false;
       if (error instanceof Error) {
         const msg = error.message;
-        if (msg.includes('HTTP 404')) {
+        if (msg.includes('HTTP 401')) {
+          this.state.error = 'Not logged in to Reddit. Click "Login with Reddit" at the top of the page.';
+        } else if (msg.includes('HTTP 404')) {
           this.state.error = this.state.contentSource.type === 'subreddit'
             ? `Subreddit 'r/${this.state.contentSource.name}' not found. It may have been banned or never existed.`
             : `User 'u/${(this.state.contentSource as {type:'user';username:string}).username}' not found. The account may have been deleted or suspended.`;
